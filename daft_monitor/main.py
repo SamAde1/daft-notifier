@@ -11,6 +11,7 @@ from types import FrameType
 from typing import Any
 
 from daft_monitor.config import AppConfig, load_config
+from daft_monitor.health import HealthServer
 from daft_monitor.logging_setup import (
     LoggingRuntimeConfig,
     parse_bool,
@@ -213,6 +214,9 @@ def run_with_logging(
         runtime_logging.log_dir,
     )
 
+    health_server = HealthServer()
+    health_server.start()
+
     config = load_config(config_path)
 
     # Send startup test notifications so we know the notifiers are healthy.
@@ -232,6 +236,7 @@ def run_with_logging(
             _interruptible_sleep(sleep_seconds, config.check_interval_minutes)
     finally:
         LOGGER.info("shutdown complete")
+        health_server.stop()
         storage.close()
 
 

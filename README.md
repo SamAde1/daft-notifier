@@ -17,6 +17,9 @@ Designed to run in Docker on a home server (e.g. Unraid) or locally on Windows/L
 - **Startup self-test** — sends a test alert and test error on every container start to confirm notifications are working.
 - **Structured logging** — concise summaries at `info` level, full wide-event JSON at `debug` level.
 - **Log file rotation** — incremental log IDs, automatic file rotation, and FIFO cleanup of old files.
+- **Health endpoint** — built-in `/health` HTTP endpoint on port 8080 for monitoring with Uptime Kuma or similar tools.
+- **Docker healthcheck** — container-level healthcheck so orchestrators know when the service is alive.
+- **CI/CD** — GitHub Actions workflow automatically builds and publishes the Docker image to GHCR on every push to `main`.
 - **Cross-platform** — runs on Windows, Linux, and Docker with no external scheduler (no cron needed).
 
 ---
@@ -25,11 +28,19 @@ Designed to run in Docker on a home server (e.g. Unraid) or locally on Windows/L
 
 ### Docker (recommended for production)
 
+The image is published to GitHub Container Registry automatically on every push to `main`.
+
 ```bash
 cp config.example.yaml config.yaml
 # Edit config.yaml with your searches and ntfy topics
-docker compose up -d --build
+docker compose up -d
 docker logs -f daft-monitor
+```
+
+To build locally instead of pulling from GHCR, use the development compose file:
+
+```bash
+docker compose -f docker-compose.dev.yml up -d --build
 ```
 
 State is persisted through mounted volumes:
@@ -37,7 +48,7 @@ State is persisted through mounted volumes:
 - `./logs/` — log files
 - `./config.yaml` — configuration (read-only mount)
 
-The container runs as `prod` by default, restarts automatically, and sends startup test notifications on every boot.
+The container runs as `prod` by default, restarts automatically, and sends startup test notifications on every boot. A health endpoint is available at `http://localhost:8080/health`.
 
 ### Local (for development and testing)
 
@@ -189,7 +200,7 @@ CLI arguments (e.g. `--environment prod`) take precedence over environment varia
 
 ## How It Works
 
-1. **Startup** — loads configuration, sets up logging, and sends test notifications to confirm delivery.
+1. **Startup** — starts the health endpoint, loads configuration, sets up logging, and sends test notifications to confirm delivery.
 2. **First run (seed)** — if the database is empty, all fetched listings are stored silently with no notifications sent. This prevents a flood of alerts on first launch.
 3. **Subsequent runs** — fetched listings are compared against the database. Only genuinely new listings trigger notifications.
 4. **Sleep** — waits for the configured interval, then repeats. Logs a heartbeat in debug mode so you can tell it's alive.
@@ -251,6 +262,68 @@ Test notifications are clearly labelled as tests and mimic the format of real al
 
 ---
 
+## Running on Unraid
+
+Daft Notifier is designed to run on an Unraid home server using the [Compose Manager](https://forums.unraid.net/topic/114415-plugin-docker-compose-manager/) plugin.
+
+### Setup
+
+1. **Push the repo to GitHub** — the GitHub Actions workflow automatically builds and publishes the Docker image to GHCR on every push to `main`.
+
+2. **Install Compose Manager** — in the Unraid web UI, go to **Plugins > Install Plugin** and install Compose Manager.
+
+3. **Create a compose stack** — add a new stack in Compose Manager and paste the following configuration:
+
+```yaml
+services:
+  daft-monitor:
+    image: ghcr.io/samade1/daft-notifier:latest
+    container_name: daft-monitor
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - /mnt/user/appdata/daft-notifier/data:/app/data
+      - /mnt/user/appdata/daft-notifier/logs:/app/logs
+      - /mnt/user/appdata/daft-notifier/config.yaml:/app/config.yaml:ro
+    environment:
+      DAFT_MONITOR_CONFIG: /app/config.yaml
+      DAFT_MONITOR_ENVIRONMENT: prod
+      DAFT_MONITOR_LOG_LEVEL: info
+      DAFT_MONITOR_WRITE_LOGS: "true"
+      DAFT_MONITOR_LOG_DIR: /app/logs
+```
+
+4. **Create the config file** — copy `config.example.yaml` to `/mnt/user/appdata/daft-notifier/config.yaml` on your Unraid server and edit it with your searches and ntfy topics.
+
+5. **Deploy** — start the stack from Compose Manager. The container will pull the latest image from GHCR, start monitoring, and send a startup test notification.
+
+---
+
+## Monitoring with Uptime Kuma
+
+The container exposes a `/health` endpoint on port 8080 that returns HTTP 200 when the service is running. This works with [Uptime Kuma](https://github.com/louislam/uptime-kuma) or any HTTP monitoring tool.
+
+### Setup
+
+1. Open your Uptime Kuma dashboard and add a new monitor.
+2. Configure it:
+   - **Type:** HTTP(s)
+   - **URL:** `http://<your-server-ip>:8080/health`
+   - **Heartbeat Interval:** 60 seconds
+3. Save the monitor.
+
+### What it detects
+
+- Container crash or restart
+- Application crash or hang
+- Server going offline
+- Network connectivity issues
+
+If the health endpoint stops responding, Uptime Kuma will mark the service as down and send an alert. For notifications, ntfy is a recommended integration — Uptime Kuma has built-in ntfy support, so you can reuse the same ntfy topics you already have configured.
+
+---
+
 ## Things to Be Aware Of
 
 - **Daft.ie rate limiting** — the service sets browser-like HTTP headers to avoid being blocked. If you set `check_interval_minutes` too low or `max_pages` too high, you risk getting rate-limited or blocked. A 5–10 minute interval with 2–3 pages is a safe default.
@@ -269,31 +342,36 @@ Test notifications are clearly labelled as tests and mimic the format of real al
 
 ```
 Daft-Notifier/
+├── .github/
+│   └── workflows/
+│       └── docker-build.yml  # CI — build & push to GHCR
 ├── daft_monitor/
 │   ├── __init__.py
-│   ├── __main__.py          # Entry point for python -m daft_monitor
-│   ├── main.py              # Scheduler, cycle logic, signal handling
-│   ├── config.py            # YAML loader, validation, env var overrides
-│   ├── models.py            # Listing dataclass
-│   ├── searcher.py          # daftlistings wrapper, HTTP headers, retries
-│   ├── storage.py           # SQLite operations (insert, dedup, seed detection)
-│   ├── wide_event.py        # Structured wide-event log builder
-│   ├── logging_setup.py     # Log rotation, incremental IDs, formatters
+│   ├── __main__.py           # Entry point for python -m daft_monitor
+│   ├── main.py               # Scheduler, cycle logic, signal handling
+│   ├── config.py             # YAML loader, validation, env var overrides
+│   ├── health.py             # HTTP /health endpoint for monitoring
+│   ├── models.py             # Listing dataclass
+│   ├── searcher.py           # daftlistings wrapper, HTTP headers, retries
+│   ├── storage.py            # SQLite operations (insert, dedup, seed detection)
+│   ├── wide_event.py         # Structured wide-event log builder
+│   ├── logging_setup.py      # Log rotation, incremental IDs, formatters
 │   └── notifiers/
-│       ├── __init__.py       # Notifier factory (builds by role + environment)
-│       ├── base.py           # Abstract notifier interface
-│       └── ntfy.py           # ntfy.sh implementation
+│       ├── __init__.py        # Notifier factory (builds by role + environment)
+│       ├── base.py            # Abstract notifier interface
+│       └── ntfy.py            # ntfy.sh implementation
 ├── tests/
-│   └── test_notifier.py     # Notification test script
-├── config.example.yaml      # Template configuration
-├── config.yaml              # Your configuration (git-ignored)
-├── requirements.txt         # Python dependencies
-├── Dockerfile               # Container image (python:3.12-slim)
-├── docker-compose.yml       # Container orchestration with volumes
-├── run-local.bat            # Windows runner script
-├── run-local.ps1            # PowerShell runner script
-├── run-local.sh             # Linux/macOS runner script
-├── LICENSE                  # MIT
+│   └── test_notifier.py      # Notification test script
+├── config.example.yaml       # Template configuration
+├── config.yaml               # Your configuration (git-ignored)
+├── requirements.txt          # Python dependencies
+├── Dockerfile                # Container image (python:3.12-slim)
+├── docker-compose.yml        # Production compose (pulls from GHCR)
+├── docker-compose.dev.yml    # Development compose (local build)
+├── run-local.bat             # Windows runner script
+├── run-local.ps1             # PowerShell runner script
+├── run-local.sh              # Linux/macOS runner script
+├── LICENSE                   # MIT
 └── README.md
 ```
 
