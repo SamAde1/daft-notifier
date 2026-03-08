@@ -1,0 +1,4 @@
+daftlistings==2.0.5
+PyYAML==6.0.2
+requests==2.32.3
+

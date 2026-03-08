@@ -1,0 +1,16 @@
+services:
+  daft-monitor:
+    build: .
+    container_name: daft-monitor
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      DAFT_MONITOR_CONFIG: /app/config.yaml
+      DAFT_MONITOR_ENVIRONMENT: prod
+      DAFT_MONITOR_LOG_LEVEL: debug
+      DAFT_MONITOR_WRITE_LOGS: "true"
+      DAFT_MONITOR_LOG_DIR: /app/logs
+

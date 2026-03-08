@@ -1,0 +1,43 @@
+# ---------- Python ----------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ---------- Testing / Linting ----------
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ---------- Virtual environments ----------
+.env
+.venv/
+venv/
+ENV/
+
+# ---------- IDE / Editor ----------
+.vscode/
+.idea/
+.cursor/
+*.swp
+*.swo
+*~
+
+# ---------- OS ----------
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ---------- Project ----------
+config.yaml
+data/
+*.db
+logs/

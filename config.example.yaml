@@ -1,0 +1,97 @@
+# Copy this file to config.yaml and edit values.
+
+check_interval_minutes: 5
+data_dir: "./data"
+
+searches:
+  - name: "Dublin Rent"
+    search_type: "RESIDENTIAL_RENT"
+    # `location` can be a string or a list of location strings.
+    location: "Dublin City"
+    # Optional enums:
+    distance: "KM5" # Distance
+    sort_type: "PUBLISH_DATE_DESC" # SortType
+    suitable_for: ["FEMALE"] # SuitableFor list
+    facilities: ["PARKING", "CABLE_TELEVISION"] # Facility list
+    misc_filters: ["VIDEO"] # MiscFilter (parsed and logged, currently no setter in daftlistings)
+    added_since: "DAYS_7" # AddedSince
+    min_ber: "B3" # Ber
+    max_ber: "D2" # Ber
+    min_price: 1000
+    max_price: 2500
+    min_beds: 1
+    max_beds: 3
+    min_baths: 1
+    max_baths: 2
+    owner_occupied: false
+    min_tenants: 1
+    max_tenants: 3
+    min_lease: 6
+    max_lease: 24
+    min_floor_size: 40
+    max_floor_size: 120
+    property_type: "APARTMENT"
+    # room_type: for SHARING searches, filter by room type.
+    # Accepted values: double, single, twin, shared
+    room_type: "double"
+    # custom_filters: inject arbitrary API filters not exposed by daftlistings.
+    # Each key is the Daft API filter name, value is a string or list of strings.
+    # custom_filters:
+    #   adState: "published"
+    # max_pages limits requests to Daft. Omit for all pages.
+    max_pages: 2
+
+# Each notification channel is a named entry under `notifications`.
+# Fields:
+#   type:          ntfy (more providers later)
+#   role:          alerts (new-listing alerts) | errors (error alerts)
+#   environments:  list of environments this notifier is active in [dev, prod]
+#   enabled:       true/false
+#   server:        ntfy server URL
+#   topic:         ntfy topic name
+#   token:         optional bearer token
+#   priority:      min, low, default, high, max
+#   tags:          list of ntfy tags
+
+notifications:
+  # --- Dev environment ---
+  ntfy-dev-alerts:
+    type: ntfy
+    role: alerts
+    environments: [dev]
+    enabled: true
+    server: "https://ntfy.sh"
+    topic: "my-daft-dev-alerts"
+    priority: "default"
+    tags: ["house"]
+
+  ntfy-dev-errors:
+    type: ntfy
+    role: errors
+    environments: [dev]
+    enabled: true
+    server: "https://ntfy.sh"
+    topic: "my-daft-dev-errors"
+    priority: "high"
+    tags: ["warning"]
+
+  # --- Prod environment ---
+  ntfy-prod-alerts:
+    type: ntfy
+    role: alerts
+    environments: [prod]
+    enabled: true
+    server: "https://ntfy.sh"
+    topic: "my-daft-prod-alerts"
+    priority: "default"
+    tags: ["house"]
+
+  ntfy-prod-errors:
+    type: ntfy
+    role: errors
+    environments: [prod]
+    enabled: true
+    server: "https://ntfy.sh"
+    topic: "my-daft-prod-errors"
+    priority: "high"
+    tags: ["warning"]
