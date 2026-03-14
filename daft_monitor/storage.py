@@ -28,11 +28,25 @@ class Storage:
                 bedrooms TEXT,
                 image_url TEXT,
                 search_name TEXT NOT NULL,
-                first_seen TEXT NOT NULL
+                first_seen TEXT NOT NULL,
+                latitude REAL,
+                longitude REAL,
+                distance_to_location REAL
             )
             """
         )
+        self._migrate_schema()
         self.conn.commit()
+
+    def _migrate_schema(self) -> None:
+        """Add columns to existing databases when new fields are introduced."""
+        columns = {row[1] for row in self.conn.execute("PRAGMA table_info(listings)").fetchall()}
+        if "latitude" not in columns:
+            self.conn.execute("ALTER TABLE listings ADD COLUMN latitude REAL")
+        if "longitude" not in columns:
+            self.conn.execute("ALTER TABLE listings ADD COLUMN longitude REAL")
+        if "distance_to_location" not in columns:
+            self.conn.execute("ALTER TABLE listings ADD COLUMN distance_to_location REAL")
 
     def close(self) -> None:
         self.conn.close()
@@ -68,6 +82,9 @@ class Storage:
                 l.image_url,
                 l.search_name,
                 l.first_seen,
+                l.latitude,
+                l.longitude,
+                l.distance_to_location,
             )
             for l in listings
         ]
@@ -77,10 +94,31 @@ class Storage:
         self.conn.executemany(
             """
             INSERT OR IGNORE INTO listings
-            (id, title, price, url, location, bedrooms, image_url, search_name, first_seen)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (id, title, price, url, location, bedrooms, image_url, search_name, first_seen,
+             latitude, longitude, distance_to_location)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             rows,
+        )
+        self.conn.commit()
+        return self.conn.total_changes - before
+
+    def update_coordinates(self, listing_id: str, latitude: float, longitude: float) -> None:
+        """Backfill lat/lng for an existing listing."""
+        self.conn.execute(
+            "UPDATE listings SET latitude = ?, longitude = ? WHERE id = ?",
+            (latitude, longitude, listing_id),
+        )
+        self.conn.commit()
+
+    def update_distances(self, distances: dict[str, float]) -> int:
+        """Update distance_to_location for many listing ids in one commit."""
+        if not distances:
+            return 0
+        before = self.conn.total_changes
+        self.conn.executemany(
+            "UPDATE listings SET distance_to_location = ? WHERE id = ?",
+            [(distance, listing_id) for listing_id, distance in distances.items()],
         )
         self.conn.commit()
         return self.conn.total_changes - before

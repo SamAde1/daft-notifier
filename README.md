@@ -12,6 +12,7 @@ Designed to run in Docker on a home server (e.g. Unraid) or locally on Windows/L
 - **Multiple searches** — define as many saved searches as you need, each with its own filters.
 - **Duplicate detection** — tracks listing IDs in SQLite so you only get notified once.
 - **Push notifications** — sends mobile-friendly alerts via ntfy.sh with title, price, location, and a direct link.
+- **Distance enrichment (optional)** — computes road distance to a configured reference point using OSRM and stores it per listing.
 - **Error notifications** — configurable error alerts sent to a separate ntfy topic when something goes wrong.
 - **Environment-aware** — separate `dev` and `prod` notifier channels with independent configuration.
 - **Startup self-test** — sends a test alert and test error on every container start to confirm notifications are working.
@@ -57,6 +58,12 @@ pip install -r requirements.txt
 cp config.example.yaml config.yaml
 # Edit config.yaml
 python -m daft_monitor
+```
+
+Install script extras (stats charting):
+
+```bash
+pip install -r requirements-scripts.txt
 ```
 
 For a single check cycle (useful for testing):
@@ -107,6 +114,10 @@ All configuration lives in `config.yaml`. Copy `config.example.yaml` as a starti
 |---|---|---|---|
 | `check_interval_minutes` | int | `5` | How often to check for new listings. |
 | `data_dir` | string | `./data` | Where the SQLite database is stored. |
+| `distance_to_location` | bool | `false` | Enable road-distance calculation and persistence for new listings. |
+| `location_name` | string | `""` | Label for the configured reference location shown in alerts. |
+| `location_latitude` | float | `null` | Latitude of the reference location (required when `distance_to_location` is `true`). |
+| `location_longitude` | float | `null` | Longitude of the reference location (required when `distance_to_location` is `true`). |
 | `searches` | list | required | One or more search definitions (see below). |
 | `notifications` | object | optional | Named notification channels (see below). |
 
@@ -262,6 +273,17 @@ Test notifications are clearly labelled as tests and mimic the format of real al
 
 ---
 
+## Scripts
+
+Utility scripts are available under `scripts/`:
+
+- `python scripts/listings_stats.py` — computes robust monthly price metrics from `data/listings.db`.
+- `python scripts/listings_stats.py --generate-image true` — generates a dashboard chart in `reports/`.
+- `python scripts/backfill_coordinates.py` — backfills `latitude`/`longitude` for existing listings missing coordinates.
+- `python scripts/backfill_distances.py` — backfills `distance_to_location` for rows with coordinates but missing distance.
+
+---
+
 ## Running on Unraid
 
 Daft Notifier is designed to run on an Unraid home server using the [Compose Manager](https://forums.unraid.net/topic/114415-plugin-docker-compose-manager/) plugin.
@@ -350,6 +372,7 @@ Daft-Notifier/
 │   ├── __main__.py           # Entry point for python -m daft_monitor
 │   ├── main.py               # Scheduler, cycle logic, signal handling
 │   ├── config.py             # YAML loader, validation, env var overrides
+│   ├── distance.py           # OSRM routing distance utilities
 │   ├── health.py             # HTTP /health endpoint for monitoring
 │   ├── models.py             # Listing dataclass
 │   ├── searcher.py           # daftlistings wrapper, HTTP headers, retries
@@ -360,11 +383,16 @@ Daft-Notifier/
 │       ├── __init__.py        # Notifier factory (builds by role + environment)
 │       ├── base.py            # Abstract notifier interface
 │       └── ntfy.py            # ntfy.sh implementation
+├── scripts/
+│   ├── backfill_coordinates.py
+│   ├── backfill_distances.py
+│   └── listings_stats.py
 ├── tests/
 │   └── test_notifier.py      # Notification test script
 ├── config.example.yaml       # Template configuration
 ├── config.yaml               # Your configuration (git-ignored)
-├── requirements.txt          # Python dependencies
+├── requirements.txt          # Core runtime dependencies
+├── requirements-scripts.txt  # Optional script/chart dependencies
 ├── Dockerfile                # Container image (python:3.12-slim)
 ├── docker-compose.yml        # Production compose (pulls from GHCR)
 ├── docker-compose.dev.yml    # Development compose (local build)

@@ -19,6 +19,7 @@ venv/
 data/
 *.db
 logs/
+reports/
 *.log
 
 tests/

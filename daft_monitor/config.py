@@ -63,6 +63,10 @@ class NotifierConfig:
 class AppConfig:
     check_interval_minutes: int
     data_dir: str
+    distance_to_location: bool
+    location_name: str
+    location_latitude: float | None
+    location_longitude: float | None
     searches: list[SearchConfig]
     notifiers: list[NotifierConfig]
 
@@ -120,6 +124,12 @@ def _to_int_or_none(value: Any) -> int | None:
     if value is None:
         return None
     return int(value)
+
+
+def _to_float_or_none(value: Any) -> float | None:
+    if value is None:
+        return None
+    return float(value)
 
 
 def _to_bool_or_none(value: Any) -> bool | None:
@@ -226,6 +236,14 @@ def load_config(path: str | None = None) -> AppConfig:
     _require(interval > 0, "check_interval_minutes must be > 0.")
 
     data_dir = str(cfg.get("data_dir", "./data"))
+    distance_to_location = bool(cfg.get("distance_to_location", False))
+    location_name = str(cfg.get("location_name", "City Centre")).strip()
+    location_latitude = _to_float_or_none(cfg.get("location_latitude"))
+    location_longitude = _to_float_or_none(cfg.get("location_longitude"))
+    if distance_to_location:
+        _require(bool(location_name), "location_name is required when distance_to_location=true.")
+        _require(location_latitude is not None, "location_latitude is required when distance_to_location=true.")
+        _require(location_longitude is not None, "location_longitude is required when distance_to_location=true.")
 
     searches: list[SearchConfig] = []
     for idx, search in enumerate(cfg["searches"]):
@@ -294,6 +312,10 @@ def load_config(path: str | None = None) -> AppConfig:
     return AppConfig(
         check_interval_minutes=interval,
         data_dir=data_dir,
+        distance_to_location=distance_to_location,
+        location_name=location_name,
+        location_latitude=location_latitude,
+        location_longitude=location_longitude,
         searches=searches,
         notifiers=notifier_configs,
     )

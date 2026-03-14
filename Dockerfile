@@ -14,8 +14,9 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 RUN groupadd --system app && useradd --system --gid app --create-home app
 
 COPY daft_monitor /app/daft_monitor
+COPY scripts /app/scripts
 
-RUN mkdir -p /app/data /app/logs && chown -R app:app /app/data /app/logs
+RUN mkdir -p /app/data /app/logs /app/reports && chown -R app:app /app/data /app/logs /app/reports
 
 USER app
 

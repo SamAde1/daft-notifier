@@ -16,6 +16,9 @@ class Listing:
     image_url: str | None
     search_name: str
     first_seen: str
+    latitude: float | None = None
+    longitude: float | None = None
+    distance_to_location: float | None = None
 
     @staticmethod
     def now_iso() -> str:

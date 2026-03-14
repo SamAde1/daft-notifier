@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from daft_monitor.logging_setup import parse_bool
 from daft_monitor.main import _parse_args, run_with_logging
 

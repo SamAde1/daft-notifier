@@ -68,6 +68,13 @@ def _extract_image_url(raw: dict[str, Any]) -> str | None:
     return None
 
 
+def _extract_coordinates(result: Any) -> tuple[float | None, float | None]:
+    try:
+        return float(result.latitude), float(result.longitude)
+    except Exception:
+        return None, None
+
+
 def _map_listing(result: Any, search_name: str) -> Listing:
     raw = result.as_dict()
     bedrooms = None
@@ -75,6 +82,8 @@ def _map_listing(result: Any, search_name: str) -> Listing:
         bedrooms = str(result.bedrooms)
     except Exception:
         bedrooms = None
+
+    lat, lng = _extract_coordinates(result)
 
     return Listing(
         id=safe_listing_id(result.id),
@@ -86,6 +95,8 @@ def _map_listing(result: Any, search_name: str) -> Listing:
         image_url=_extract_image_url(raw),
         search_name=search_name,
         first_seen=Listing.now_iso(),
+        latitude=lat,
+        longitude=lng,
     )
 
 

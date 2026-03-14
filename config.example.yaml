@@ -2,6 +2,10 @@
 
 check_interval_minutes: 5
 data_dir: "./data"
+distance_to_location: true
+location_name: "City Centre"
+location_latitude: 53.3473
+location_longitude: -6.2591
 
 searches:
   - name: "Dublin Rent"

@@ -11,6 +11,7 @@ from types import FrameType
 from typing import Any
 
 from daft_monitor.config import AppConfig, load_config
+from daft_monitor.distance import fetch_distances_batch_km
 from daft_monitor.health import HealthServer
 from daft_monitor.logging_setup import (
     LoggingRuntimeConfig,
@@ -81,6 +82,49 @@ def _dispatch_error_notifications(
             LOGGER.error("Failed to send error notification via %s", type(notifier).__name__, exc_info=True)
 
 
+def _populate_distances_for_listings(config: AppConfig, listings: list[Listing], event: WideEvent) -> None:
+    """Populate listing.distance_to_location for listings with coordinates."""
+    if not config.distance_to_location:
+        return
+    if config.location_latitude is None or config.location_longitude is None:
+        return
+    with_coords = [
+        (listing.id, listing.latitude, listing.longitude)
+        for listing in listings
+        if listing.latitude is not None and listing.longitude is not None
+    ]
+    if not with_coords:
+        event.add_hop("distance_to_location", {"status": "skipped_no_coordinates", "listing_count": 0})
+        return
+    try:
+        distances = fetch_distances_batch_km(
+            origin_lat=config.location_latitude,
+            origin_lng=config.location_longitude,
+            destinations=[(lid, lat, lng) for lid, lat, lng in with_coords],
+        )
+        for listing in listings:
+            listing.distance_to_location = distances.get(listing.id)
+        event.add_hop(
+            "distance_to_location",
+            {
+                "status": "ok",
+                "candidate_count": len(with_coords),
+                "distance_count": len(distances),
+                "updated_count": len(distances),
+            },
+        )
+    except Exception as exc:
+        event.add_hop(
+            "distance_to_location",
+            {
+                "status": "error",
+                "candidate_count": len(with_coords),
+                "error": str(exc),
+            },
+        )
+        event.add_error("distance_to_location_failed", {"error": str(exc)})
+
+
 def _run_cycle(config: AppConfig, storage: Storage, searcher: Searcher, environment: str) -> None:
     cycle_id = str(uuid.uuid4())
     is_seed_run = storage.is_first_run()
@@ -99,6 +143,7 @@ def _run_cycle(config: AppConfig, storage: Storage, searcher: Searcher, environm
         event.add_hop("dedupe", {"input_count": len(listings), "output_count": len(deduped)})
 
         if is_seed_run:
+            _populate_distances_for_listings(config, deduped, event)
             inserted = storage.insert_listings(deduped)
             event.add_field("seed_inserted_count", inserted)
             event.add_hop("storage_seed", {"inserted_count": inserted})
@@ -107,6 +152,8 @@ def _run_cycle(config: AppConfig, storage: Storage, searcher: Searcher, environm
         new_listings = storage.filter_new_listings(deduped)
         event.add_field("new_listings_count", len(new_listings))
         event.add_hop("storage_diff", {"candidate_count": len(deduped), "new_count": len(new_listings)})
+
+        _populate_distances_for_listings(config, new_listings, event)
 
         alert_notifiers = build_alert_notifiers(config, environment)
         for listing in new_listings:
@@ -163,6 +210,8 @@ def _send_startup_tests(config: AppConfig, environment: str) -> None:
             image_url=None,
             search_name="startup-test",
             first_seen=Listing.now_iso(),
+            latitude=None,
+            longitude=None,
         )
         for n in alert_notifiers:
             ok = n.send(test_listing, event)
@@ -299,15 +348,3 @@ def _parse_args() -> argparse.Namespace:
         help="Directory for log files (env: DAFT_MONITOR_LOG_DIR).",
     )
     return parser.parse_args()
-
-
-if __name__ == "__main__":
-    args = _parse_args()
-    run_with_logging(
-        config_path=args.config_path,
-        run_once=args.once,
-        environment=args.environment,
-        log_level=args.log_level,
-        write_logs=parse_bool(args.write_logs),
-        log_dir=args.log_dir,
-    )

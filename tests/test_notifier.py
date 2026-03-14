@@ -15,7 +15,7 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
-from daft_monitor.config import load_config
+from daft_monitor.config import AppConfig, load_config
 from daft_monitor.logging_setup import LoggingRuntimeConfig, setup_logging
 from daft_monitor.models import Listing
 from daft_monitor.notifiers import build_alert_notifiers, build_error_notifiers
@@ -34,6 +34,8 @@ def _create_test_listing() -> Listing:
         image_url=None,
         search_name="test-search",
         first_seen=Listing.now_iso(),
+        latitude=53.3419,
+        longitude=-6.2388,
     )
 
 
@@ -61,7 +63,12 @@ def _create_test_errors() -> tuple[str, list[dict]]:
     return cycle_id, errors
 
 
-def _send_test_alert(config, environment: str, event: WideEvent, logger: logging.Logger) -> None:
+def _send_test_alert(
+    config: AppConfig,
+    environment: str,
+    event: WideEvent,
+    logger: logging.Logger,
+) -> None:
     notifiers = build_alert_notifiers(config, environment)
     if not notifiers:
         logger.warning("No alert notifiers configured for environment=%s", environment)
@@ -74,7 +81,12 @@ def _send_test_alert(config, environment: str, event: WideEvent, logger: logging
         logger.info("  Alert via %s -> sent=%s", type(n).__name__, ok)
 
 
-def _send_test_error(config, environment: str, event: WideEvent, logger: logging.Logger) -> None:
+def _send_test_error(
+    config: AppConfig,
+    environment: str,
+    event: WideEvent,
+    logger: logging.Logger,
+) -> None:
     notifiers = build_error_notifiers(config, environment)
     if not notifiers:
         logger.warning("No error notifiers configured for environment=%s", environment)

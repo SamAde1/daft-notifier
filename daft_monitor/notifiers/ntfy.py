@@ -9,11 +9,12 @@ from daft_monitor.wide_event import WideEvent
 
 
 class NtfyNotifier(Notifier):
-    def __init__(self, cfg: NotifierConfig, timeout_seconds: int = 20):
+    def __init__(self, cfg: NotifierConfig, timeout_seconds: int = 20, location_name: str | None = None):
         if not cfg.topic:
             raise ValueError("Ntfy topic is required.")
         self.cfg = cfg
         self.timeout_seconds = timeout_seconds
+        self.location_name = location_name
 
     @staticmethod
     def _ascii_safe(text: str) -> str:
@@ -59,6 +60,8 @@ class NtfyNotifier(Notifier):
             f"Beds: {beds}",
             f"Link: {listing.url}",
         ]
+        if listing.distance_to_location is not None and self.location_name:
+            body_lines.insert(3, f"Distance to {self.location_name}: {listing.distance_to_location:.2f} km")
         body = "\n".join(body_lines)
 
         headers = self._base_headers()

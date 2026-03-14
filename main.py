@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from daft_monitor.main import run
 
 

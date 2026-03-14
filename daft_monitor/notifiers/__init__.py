@@ -16,7 +16,7 @@ def _build_by_role(config: AppConfig, environment: str, role: str) -> list[Notif
         if environment not in nc.environments:
             continue
         if nc.type == "ntfy":
-            notifiers.append(NtfyNotifier(nc))
+            notifiers.append(NtfyNotifier(nc, location_name=config.location_name))
     return notifiers
 
 
