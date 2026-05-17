@@ -45,6 +45,22 @@ searches:
     # max_pages limits requests to Daft. Omit for all pages.
     max_pages: 2
 
+  # Example: buy a 3-4 bed house up to €500k across Dublin, Kildare and Meath.
+  - name: "Commuter Belt House Buy"
+    search_type: "RESIDENTIAL_SALE"
+    location:
+      - "Dublin"
+      - "Kildare"
+      - "Meath"
+    sort_type: "PUBLISH_DATE_DESC"
+    added_since: "DAYS_7"
+    property_type: "HOUSE"
+    min_price: 100000
+    max_price: 500000
+    min_beds: 3
+    max_beds: 4
+    max_pages: 5
+
 # Each notification channel is a named entry under `notifications`.
 # Fields:
 #   type:          ntfy (more providers later)
