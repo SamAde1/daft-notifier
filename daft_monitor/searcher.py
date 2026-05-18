@@ -22,12 +22,12 @@ from daftlistings import (
 import daftlistings.daft as daft_module
 
 from daft_monitor.config import SearchConfig
+from daft_monitor.constants import DEFAULT_USER_AGENT
 from daft_monitor.models import Listing, safe_listing_id
 from daft_monitor.wide_event import WideEvent
 
 
 EnumT = TypeVar("EnumT", bound=Enum)
-DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:146.0) Gecko/20100101 Firefox/146.0"
 
 
 def _enum_from_str(enum_cls: type[EnumT], value: str) -> EnumT:

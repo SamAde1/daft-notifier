@@ -1,15 +1,15 @@
 services:
-  daft-monitor:
+  daft-monitor-sales:
     image: ${DAFT_NOTIFIER_IMAGE:-ghcr.io/samade1/daft-notifier:latest}
     pull_policy: always
-    container_name: daft-monitor
+    container_name: daft-monitor-sales
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "8081:8080"
     volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
-      - ./config.yaml:/app/config.yaml:ro
+      - ./data-sales:/app/data
+      - ./logs-sales:/app/logs
+      - ./config.sales.yaml:/app/config.yaml:ro
     environment:
       DAFT_MONITOR_CONFIG: /app/config.yaml
       DAFT_MONITOR_ENVIRONMENT: prod

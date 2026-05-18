@@ -10,7 +10,9 @@ from datetime import datetime, timedelta, timezone
 from types import FrameType
 from typing import Any
 
+from daft_monitor import __version__
 from daft_monitor.config import AppConfig, load_config
+from daft_monitor.constants import EVENT_NEW, EVENT_PRICE_CHANGE, EVENT_RELISTED, EVENT_REMOVED
 from daft_monitor.distance import fetch_distances_batch_km
 from daft_monitor.health import HealthServer
 from daft_monitor.logging_setup import (
@@ -20,7 +22,7 @@ from daft_monitor.logging_setup import (
     parse_log_level,
     setup_logging,
 )
-from daft_monitor.models import Listing
+from daft_monitor.models import Listing, ListingEvent
 from daft_monitor.notifiers import build_alert_notifiers, build_error_notifiers
 from daft_monitor.notifiers.base import Notifier
 from daft_monitor.searcher import Searcher
@@ -125,6 +127,100 @@ def _populate_distances_for_listings(config: AppConfig, listings: list[Listing],
         event.add_error("distance_to_location_failed", {"error": str(exc)})
 
 
+def _record_listing_events(
+    storage: Storage,
+    listings: list[Listing],
+    event_type: str,
+    timestamp: str,
+) -> int:
+    events = [
+        ListingEvent(
+            listing_id=listing.id,
+            event_type=event_type,
+            timestamp=timestamp,
+        )
+        for listing in listings
+    ]
+    return storage.insert_events(events)
+
+
+def _process_lifecycle(
+    storage: Storage,
+    deduped: list[Listing],
+    successful_searches: list[str],
+    event: WideEvent,
+) -> None:
+    successful_searches_set = set(successful_searches)
+    now = Listing.now_iso()
+    current_by_id = {listing.id: listing for listing in deduped}
+    current_ids = set(current_by_id.keys())
+    active_ids = storage.get_active_listing_ids()
+    still_present_ids = active_ids & current_ids
+
+    existing_still_present = storage.get_listings_by_ids(still_present_ids)
+    price_changes = 0
+    last_price_backfills = 0
+    for existing in existing_still_present:
+        current = current_by_id.get(existing.id)
+        if current is None:
+            continue
+
+        if existing.last_price is None:
+            storage.update_listing_price(existing.id, current.price, now)
+            last_price_backfills += 1
+            continue
+
+        if current.price != existing.last_price:
+            storage.update_listing_price(existing.id, current.price, now)
+            storage.insert_event(
+                ListingEvent(
+                    listing_id=existing.id,
+                    event_type=EVENT_PRICE_CHANGE,
+                    timestamp=now,
+                    old_value=existing.last_price,
+                    new_value=current.price,
+                )
+            )
+            price_changes += 1
+
+    last_seen_updates = storage.update_last_seen(still_present_ids, now)
+
+    inactive_candidates = current_ids - active_ids
+    existing_inactive = storage.get_listings_by_ids(inactive_candidates)
+    relisted_ids = {listing.id for listing in existing_inactive if not listing.is_active}
+    relisted_listings = [current_by_id[listing_id] for listing_id in sorted(relisted_ids)]
+    relistings = 0
+    if relisted_ids:
+        storage.mark_listings_active(relisted_ids, now)
+        relistings = _record_listing_events(storage, relisted_listings, EVENT_RELISTED, now)
+
+    removal_candidates = active_ids - current_ids
+    candidate_rows = storage.get_listings_by_ids(removal_candidates)
+    removable_rows = [row for row in candidate_rows if row.search_name in successful_searches_set]
+    removable_ids = {row.id for row in removable_rows}
+    removals = 0
+    if removable_ids:
+        storage.mark_listings_removed(removable_ids, now)
+        removals = _record_listing_events(storage, removable_rows, EVENT_REMOVED, now)
+
+    event.add_field("lifecycle_price_changes", price_changes)
+    event.add_field("lifecycle_removals", removals)
+    event.add_field("lifecycle_relistings", relistings)
+    event.add_field("lifecycle_last_seen_updates", last_seen_updates)
+    event.add_field("lifecycle_backfilled_last_price", last_price_backfills)
+    event.add_hop(
+        "lifecycle",
+        {
+            "successful_search_count": len(successful_searches_set),
+            "price_change_count": price_changes,
+            "removal_count": removals,
+            "relisting_count": relistings,
+            "last_seen_updates": last_seen_updates,
+            "last_price_backfills": last_price_backfills,
+        },
+    )
+
+
 def _run_cycle(config: AppConfig, storage: Storage, searcher: Searcher, environment: str) -> None:
     cycle_id = str(uuid.uuid4())
     is_seed_run = storage.is_first_run()
@@ -137,16 +233,23 @@ def _run_cycle(config: AppConfig, storage: Storage, searcher: Searcher, environm
 
     try:
         listings = searcher.run_all(config.searches, event)
+        successful_searches = [str(name) for name in event.payload.get("searches_executed", [])]
         unique_by_id = {listing.id: listing for listing in listings}
         deduped = list(unique_by_id.values())
         event.add_field("deduped_listings_count", len(deduped))
         event.add_hop("dedupe", {"input_count": len(listings), "output_count": len(deduped)})
+        event.add_field("lifecycle_price_changes", 0)
+        event.add_field("lifecycle_removals", 0)
+        event.add_field("lifecycle_relistings", 0)
+        event.add_field("lifecycle_last_seen_updates", 0)
+        event.add_field("lifecycle_backfilled_last_price", 0)
 
         if is_seed_run:
             _populate_distances_for_listings(config, deduped, event)
             inserted = storage.insert_listings(deduped)
+            new_events = _record_listing_events(storage, deduped, EVENT_NEW, Listing.now_iso())
             event.add_field("seed_inserted_count", inserted)
-            event.add_hop("storage_seed", {"inserted_count": inserted})
+            event.add_hop("storage_seed", {"inserted_count": inserted, "new_events_count": new_events})
             return
 
         new_listings = storage.filter_new_listings(deduped)
@@ -165,7 +268,9 @@ def _run_cycle(config: AppConfig, storage: Storage, searcher: Searcher, environm
                     event.increment("notification_errors", 1)
 
         inserted = storage.insert_listings(new_listings)
-        event.add_hop("storage_insert", {"inserted_count": inserted})
+        new_events = _record_listing_events(storage, new_listings, EVENT_NEW, Listing.now_iso())
+        event.add_hop("storage_insert", {"inserted_count": inserted, "new_events_count": new_events})
+        _process_lifecycle(storage, deduped, successful_searches, event)
     except Exception as exc:
         event.add_error("cycle_failed", {"error": str(exc)})
     finally:
@@ -256,20 +361,26 @@ def run_with_logging(
     _register_signal_handlers()
 
     LOGGER.info(
-        "startup environment=%s log_level=%s write_logs=%s log_dir=%s",
+        "startup version=%s environment=%s log_level=%s write_logs=%s log_dir=%s",
+        __version__,
         runtime_logging.environment,
         runtime_logging.log_level,
         runtime_logging.write_logs,
         runtime_logging.log_dir,
     )
 
-    health_server = HealthServer()
+    health_port = int(os.environ.get("DAFT_MONITOR_HEALTH_PORT", "8080"))
+    health_server = HealthServer(port=health_port)
     health_server.start()
 
     config = load_config(config_path)
 
     # Send startup test notifications so we know the notifiers are healthy.
-    _send_startup_tests(config, runtime_logging.environment)
+    startup_tests_enabled = parse_bool(os.environ.get("DAFT_MONITOR_STARTUP_TEST_NOTIFICATIONS", "true"))
+    if startup_tests_enabled:
+        _send_startup_tests(config, runtime_logging.environment)
+    else:
+        LOGGER.info("startup test notifications disabled via DAFT_MONITOR_STARTUP_TEST_NOTIFICATIONS")
 
     storage = Storage(config.data_dir)
     searcher = Searcher()

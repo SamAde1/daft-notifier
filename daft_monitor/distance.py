@@ -4,8 +4,7 @@ from typing import Iterable
 
 import requests
 
-
-OSRM_TABLE_URL = "http://router.project-osrm.org/table/v1/driving/"
+from daft_monitor.constants import OSRM_TABLE_URL
 
 
 def _chunked[T](items: list[T], size: int) -> Iterable[list[T]]:

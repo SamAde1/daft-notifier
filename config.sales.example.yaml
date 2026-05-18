@@ -1,0 +1,97 @@
+# Sales monitor config — copy to config.sales.yaml and edit values.
+#
+# Run this as a separate instance alongside the rental monitor.
+# Each instance gets its own data directory, logs, and notification topics.
+#
+# Docker:   docker compose -f docker-compose.sales.yml up -d
+# Local:    DAFT_MONITOR_CONFIG=config.sales.yaml python -m daft_monitor --once
+#
+# Summary reports:
+#   Weekly:  python scripts/sales_summary.py --data-dir ./data-sales
+#   Daily:   python scripts/sales_summary.py --data-dir ./data-sales --window 1
+#   + ntfy:  python scripts/sales_summary.py --data-dir ./data-sales --ntfy-topic my-sales-summary
+
+check_interval_minutes: 120
+# data_dir notes:
+# - Local (non-Docker): use "./data-sales" to keep sales data separate.
+# - Docker/Unraid (with host data-sales mounted to /app/data): use "./data".
+data_dir: "./data"
+distance_to_location: true
+location_name: "City Centre"
+location_latitude: 53.3473
+location_longitude: -6.2591
+
+searches:
+  # Separate searches per bedroom count so analytics can break out
+  # 3-bed vs 4-bed metrics without parsing listing data.
+
+  - name: "Dublin Kildare Meath 3-Bed Houses"
+    search_type: "RESIDENTIAL_SALE"
+    location:
+      - "Dublin"
+      - "Kildare"
+      - "Meath"
+    property_type: "HOUSE"
+    sort_type: "PUBLISH_DATE_DESC"
+    min_price: 100000
+    max_price: 450000
+    min_beds: 3
+    max_beds: 3
+    max_pages: 5
+
+  - name: "Dublin Kildare Meath 4-Bed Houses"
+    search_type: "RESIDENTIAL_SALE"
+    location:
+      - "Dublin"
+      - "Kildare"
+      - "Meath"
+    property_type: "HOUSE"
+    sort_type: "PUBLISH_DATE_DESC"
+    min_price: 100000
+    max_price: 450000
+    min_beds: 4
+    max_beds: 4
+    max_pages: 5
+
+notifications:
+  # --- Dev environment ---
+  ntfy-dev-sales-alerts:
+    type: ntfy
+    role: alerts
+    environments: [dev]
+    enabled: true
+    server: "https://ntfy.sh"
+    topic: "my-daft-sales-dev-alerts"
+    priority: "default"
+    tags: ["house"]
+
+  ntfy-dev-sales-errors:
+    type: ntfy
+    role: errors
+    environments: [dev]
+    enabled: true
+    server: "https://ntfy.sh"
+    topic: "my-daft-sales-dev-errors"
+    priority: "high"
+    tags: ["warning"]
+
+  # --- Prod environment ---
+  ntfy-prod-sales-alerts:
+    type: ntfy
+    role: alerts
+    environments: [prod]
+    enabled: true
+    server: "https://ntfy.sh"
+    topic: "my-daft-sales-prod-alerts"
+    priority: "default"
+    tags: ["house"]
+
+  ntfy-prod-sales-errors:
+    type: ntfy
+    role: errors
+    environments: [prod]
+    enabled: true
+    server: "https://ntfy.sh"
+    topic: "my-daft-sales-prod-errors"
+    priority: "high"
+    tags: ["warning"]

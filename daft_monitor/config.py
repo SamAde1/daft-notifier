@@ -7,8 +7,7 @@ from typing import Any, cast
 
 import yaml
 
-
-ENV_PREFIX = "DAFT_MONITOR_"
+from daft_monitor.constants import ENV_PREFIX
 
 
 @dataclass(slots=True)

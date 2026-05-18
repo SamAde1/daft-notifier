@@ -20,6 +20,7 @@ htmlcov/
 # ---------- Virtual environments ----------
 .env
 .venv/
+.venv-test/
 venv/
 ENV/
 
@@ -38,9 +39,15 @@ Desktop.ini
 
 # ---------- Project ----------
 config.yaml
+config.sales.yaml
+config.e2e-test.yaml
 data/
+data-sales/
+data-e2e/
 *.db
 logs/
+logs-sales/
+logs-e2e/
 reports/
 PROJECT_SUMMARY.md
 t3DockerDaftListingsChat.txt

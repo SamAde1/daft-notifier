@@ -11,14 +11,19 @@ __pycache__/
 .env
 venv/
 .venv/
+.venv-test/
 
 .vscode/
 .idea/
 .cursor/
 
 data/
+data-sales/
+data-e2e/
 *.db
 logs/
+logs-sales/
+logs-e2e/
 reports/
 *.log
 
@@ -31,4 +36,6 @@ tests/
 LICENSE
 
 config.yaml
+config.sales.yaml
+config.e2e-test.yaml
 docker-compose*.yml
