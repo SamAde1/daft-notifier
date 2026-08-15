@@ -738,22 +738,6 @@ def _run_cycle(config: AppConfig, storage: Storage, searcher: Searcher, environm
 
         if new_listings:
             _populate_distances_for_listings(config, new_listings, event)
-
-            alert_notifiers = build_alert_notifiers(config, environment)
-            listings_to_alert = [
-                listing for listing in new_listings if listing.id in alert_listing_ids
-            ]
-            for listing in listings_to_alert:
-                for notifier in alert_notifiers:
-                    ok = notifier.send(listing, event)
-                    if ok:
-                        event.increment("notifications_sent", 1)
-                    else:
-                        event.increment("notification_errors", 1)
-            skipped = len(new_listings) - len(listings_to_alert)
-            if skipped:
-                event.increment("notifications_skipped_notify_false", skipped)
-
             inserted = storage.insert_listings(new_listings)
             new_events = _record_listing_events(storage, new_listings, EVENT_NEW, now)
             event.add_hop("storage_insert", {"inserted_count": inserted, "new_events_count": new_events})
@@ -790,28 +774,26 @@ def _run_cycle(config: AppConfig, storage: Storage, searcher: Searcher, environm
                 continue
             alert_listing_ids.add(transition.listing_id)
 
-        if live_candidates:
+        # One dispatch path covers brand-new inserts and already-known relists.
+        listings_to_alert: list[Listing] = []
+        seen_alert_ids: set[str] = set()
+        for listing in live_candidates:
+            if listing.id not in alert_listing_ids or listing.id in seen_alert_ids:
+                continue
+            seen_alert_ids.add(listing.id)
+            listings_to_alert.append(listing)
+        if listings_to_alert:
             alert_notifiers = build_alert_notifiers(config, environment)
-            listings_to_alert = [
-                listing for listing in live_candidates if listing.id in alert_listing_ids
-            ]
-            seen_ids: set[str] = set()
-            deduped_alerts: list[Listing] = []
             for listing in listings_to_alert:
-                if listing.id in seen_ids:
-                    continue
-                seen_ids.add(listing.id)
-                deduped_alerts.append(listing)
-            for listing in deduped_alerts:
                 for notifier in alert_notifiers:
                     ok = notifier.send(listing, event)
                     if ok:
                         event.increment("notifications_sent", 1)
                     else:
                         event.increment("notification_errors", 1)
-            skipped = len(live_candidates) - len(deduped_alerts)
-            if skipped:
-                event.increment("notifications_skipped_notify_false", skipped)
+        skipped = len(live_candidates) - len(listings_to_alert)
+        if skipped:
+            event.increment("notifications_skipped_notify_false", skipped)
 
         # Lifecycle: skip only on a pure first-run seed (empty DB, every search seeding).
         if is_global_seed and all(seed_flags.values()):
