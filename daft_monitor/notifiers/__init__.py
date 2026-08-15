@@ -28,3 +28,8 @@ def build_alert_notifiers(config: AppConfig, environment: str) -> list[Notifier]
 def build_error_notifiers(config: AppConfig, environment: str) -> list[Notifier]:
     """Return notifiers configured for error alerts in the given environment."""
     return _build_by_role(config, environment, "errors")
+
+
+def build_digest_notifiers(config: AppConfig, environment: str) -> list[Notifier]:
+    """Return notifiers configured for the weekly digest in the given environment."""
+    return _build_by_role(config, environment, "digest")

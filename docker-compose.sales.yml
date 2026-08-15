@@ -1,3 +1,5 @@
+# Production: pin a release tag, for example:
+#   DAFT_NOTIFIER_IMAGE=ghcr.io/samade1/daft-notifier:v2.0.0
 services:
   daft-monitor-sales:
     image: ${DAFT_NOTIFIER_IMAGE:-ghcr.io/samade1/daft-notifier:latest}

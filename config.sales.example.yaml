@@ -1,4 +1,5 @@
-# Sales monitor config — copy to config.sales.yaml and edit values.
+# Observation-mode sales config — copy to config.sales.yaml and edit values.
+# Do not commit the copy.
 #
 # Run this as a separate instance alongside the rental monitor.
 # Each instance gets its own data directory, logs, and notification topics.
@@ -6,10 +7,15 @@
 # Docker:   docker compose -f docker-compose.sales.yml up -d
 # Local:    DAFT_MONITOR_CONFIG=config.sales.yaml python -m daft_monitor --once
 #
-# Summary reports:
-#   Weekly:  python scripts/sales_summary.py --data-dir ./data-sales
-#   Daily:   python scripts/sales_summary.py --data-dir ./data-sales --window 1
-#   + ntfy:  python scripts/sales_summary.py --data-dir ./data-sales --ntfy-topic my-sales-summary
+# Live Daft counts on 2026-08-15 (first-page totalResults, all residential
+# property types, no price/bed caps):
+#   Dublin 3759, Dublin City 3043, Dublin+City 3763, Kildare 556, Meath 456,
+#   Wicklow 521. County Dublin already covers Dublin City for practical
+#   purposes (4 extra listings in the union). Each county is its own search
+#   so Dublin's ~76-page inventory cannot stall the others.
+#
+# First production week: leave notify: false, do not enable digest_day, and
+# keep listing-alert notifiers disabled. Error notifiers stay on.
 
 check_interval_minutes: 120
 # data_dir notes:
@@ -21,45 +27,58 @@ location_name: "City Centre"
 location_latitude: 53.3473
 location_longitude: -6.2591
 
+removal_grace_hours: 48
+deep_scan_max_pages: 120
+deep_scan_min_interval_hours: 24
+
+# Weekly digest — enable only after a clean week of observation data.
+# digest_day: "sunday"
+# digest_hour: 9
+# digest_timezone: "Europe/Dublin"
+
 searches:
-  # Separate searches per bedroom count so analytics can break out
-  # 3-bed vs 4-bed metrics without parsing listing data.
-
-  - name: "Dublin Kildare Meath 3-Bed Houses"
+  - name: "Dublin Residential Sale"
+    id: "dublin-sale"
     search_type: "RESIDENTIAL_SALE"
-    location:
-      - "Dublin"
-      - "Kildare"
-      - "Meath"
-    property_type: "HOUSE"
+    location: ["Dublin"]
     sort_type: "PUBLISH_DATE_DESC"
-    min_price: 100000
-    max_price: 450000
-    min_beds: 3
-    max_beds: 3
-    max_pages: 5
+    notify: false
+    deep_scan: true
+    shallow_pages: 2
 
-  - name: "Dublin Kildare Meath 4-Bed Houses"
+  - name: "Kildare Residential Sale"
+    id: "kildare-sale"
     search_type: "RESIDENTIAL_SALE"
-    location:
-      - "Dublin"
-      - "Kildare"
-      - "Meath"
-    property_type: "HOUSE"
+    location: ["Kildare"]
     sort_type: "PUBLISH_DATE_DESC"
-    min_price: 100000
-    max_price: 450000
-    min_beds: 4
-    max_beds: 4
-    max_pages: 5
+    notify: false
+    deep_scan: true
+    shallow_pages: 2
+
+  - name: "Meath Residential Sale"
+    id: "meath-sale"
+    search_type: "RESIDENTIAL_SALE"
+    location: ["Meath"]
+    sort_type: "PUBLISH_DATE_DESC"
+    notify: false
+    deep_scan: true
+    shallow_pages: 2
+
+  - name: "Wicklow Residential Sale"
+    id: "wicklow-sale"
+    search_type: "RESIDENTIAL_SALE"
+    location: ["Wicklow"]
+    sort_type: "PUBLISH_DATE_DESC"
+    notify: false
+    deep_scan: true
+    shallow_pages: 2
 
 notifications:
-  # --- Dev environment ---
   ntfy-dev-sales-alerts:
     type: ntfy
     role: alerts
     environments: [dev]
-    enabled: true
+    enabled: false
     server: "https://ntfy.sh"
     topic: "my-daft-sales-dev-alerts"
     priority: "default"
@@ -75,12 +94,11 @@ notifications:
     priority: "high"
     tags: ["warning"]
 
-  # --- Prod environment ---
   ntfy-prod-sales-alerts:
     type: ntfy
     role: alerts
     environments: [prod]
-    enabled: true
+    enabled: false
     server: "https://ntfy.sh"
     topic: "my-daft-sales-prod-alerts"
     priority: "default"
@@ -95,3 +113,14 @@ notifications:
     topic: "my-daft-sales-prod-errors"
     priority: "high"
     tags: ["warning"]
+
+  # Requires digest_day to be set at the top of this file.
+  # ntfy-prod-sales-digest:
+  #   type: ntfy
+  #   role: digest
+  #   environments: [prod]
+  #   enabled: true
+  #   server: "https://ntfy.sh"
+  #   topic: "my-daft-sales-prod-digest"
+  #   priority: "default"
+  #   tags: ["chart_with_upwards_trend"]

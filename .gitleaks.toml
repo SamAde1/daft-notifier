@@ -1,0 +1,10 @@
+title = "daft-notifier"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known public placeholder topic names"
+regexes = [
+    '''my-daft-(?:sales-)?(?:dev|prod)-(?:alerts|errors|digest)''',
+]

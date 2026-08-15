@@ -10,18 +10,18 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/daft-notifier
+  GITLEAKS_VERSION: "8.24.3"
 
 jobs:
-  build-and-push:
+  test:
     runs-on: ubuntu-latest
-
     permissions:
       contents: read
-      packages: write
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -34,8 +34,42 @@ jobs:
           pip install -r requirements.txt -r requirements-scripts.txt
 
       - name: Validate Python sources compile
+        run: python -m compileall -q daft_monitor scripts tests
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Install Gitleaks
         run: |
-          python -m compileall -q daft_monitor scripts
+          TARBALL="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          BASE_URL="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          curl -sSLo "$TARBALL" "${BASE_URL}/${TARBALL}"
+          curl -sSLo checksums.txt "${BASE_URL}/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          EXPECTED_SHA="$(rg "${TARBALL}$" checksums.txt -N | awk '{print $1}')"
+          if [ -z "$EXPECTED_SHA" ]; then
+            echo "Unable to find checksum for ${TARBALL}" >&2
+            exit 1
+          fi
+          echo "${EXPECTED_SHA}  ${TARBALL}" | sha256sum -c -
+          tar -xzf "$TARBALL" gitleaks
+          sudo mv gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      - name: Scan git history for secrets
+        run: gitleaks detect --source . --verbose --redact --no-banner
+
+      - name: Scan working tree for secrets
+        run: gitleaks detect --no-git --source . --verbose --redact --no-banner
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

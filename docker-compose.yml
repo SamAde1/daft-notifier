@@ -1,3 +1,7 @@
+# Production: pin a release tag, for example:
+#   DAFT_NOTIFIER_IMAGE=ghcr.io/samade1/daft-notifier:v2.0.0
+# Do not follow `latest` while Watchtower or pull_policy would auto-roll a
+# schema-changing image onto live databases.
 services:
   daft-monitor:
     image: ${DAFT_NOTIFIER_IMAGE:-ghcr.io/samade1/daft-notifier:latest}

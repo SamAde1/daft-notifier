@@ -16,6 +16,10 @@ class NtfyNotifier(Notifier):
         self.timeout_seconds = timeout_seconds
         self.location_name = location_name
 
+    @property
+    def name(self) -> str:
+        return self.cfg.name
+
     @staticmethod
     def _ascii_safe(text: str) -> str:
         """HTTP headers only support latin-1 / ASCII.
@@ -102,6 +106,57 @@ class NtfyNotifier(Notifier):
                     "provider": "ntfy",
                     "notifier": self.cfg.name,
                     "listing_id": listing.id,
+                    "error": str(exc),
+                },
+            )
+            return False
+
+    # --- Weekly digest notification ---
+
+    def send_digest(self, digest_title: str, digest_body: str, event: WideEvent) -> bool:
+        url = f"{self.cfg.server}/{self.cfg.topic}"
+        title = self._ascii_safe(digest_title)[:200]
+
+        # Longer cap than alerts/errors: a weekly summary is a few KB of text.
+        max_body_chars = 3800
+        body = digest_body
+        if len(body) > max_body_chars:
+            body = body[: max_body_chars - 29] + "\n\n[digest truncated for ntfy]"
+
+        headers = self._base_headers()
+        headers["Title"] = title
+
+        try:
+            response = requests.post(
+                url,
+                data=body.encode("utf-8"),
+                headers=headers,
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+            event.add_hop(
+                "notification_ntfy_digest",
+                {
+                    "notifier": self.cfg.name,
+                    "status": "sent",
+                    "http_status": response.status_code,
+                },
+            )
+            return True
+        except Exception as exc:
+            event.add_hop(
+                "notification_ntfy_digest",
+                {
+                    "notifier": self.cfg.name,
+                    "status": "error",
+                    "error": str(exc),
+                },
+            )
+            event.add_error(
+                "digest_notification_failed",
+                {
+                    "provider": "ntfy",
+                    "notifier": self.cfg.name,
                     "error": str(exc),
                 },
             )
