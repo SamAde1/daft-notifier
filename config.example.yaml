@@ -1,85 +1,135 @@
-# Copy this file to config.yaml and edit values.
+# Observation-mode example config (rent / sharing container).
+# Copy to config.yaml and edit notification topics. Do not commit the copy.
+#
+# Live Daft counts on 2026-08-15 (first-page totalResults):
+#   Dublin sharing 927, rent 1228; Kildare 167/140; Meath 121/75; Wicklow 82/67.
+#   Dublin City is a subset of county Dublin for these sections, so location
+#   is county-only. Each county is its own search so a large Dublin inventory
+#   cannot stall Kildare/Meath/Wicklow lifecycle updates.
+#
+# First production week: leave notify: false, do not enable digest_day, and
+# keep listing-alert notifiers disabled. Error notifiers stay on.
 
-check_interval_minutes: 5
+check_interval_minutes: 30
 data_dir: "./data"
 distance_to_location: true
 location_name: "City Centre"
 location_latitude: 53.3473
 location_longitude: -6.2591
 
-searches:
-  - name: "Dublin Rent"
-    search_type: "RESIDENTIAL_RENT"
-    # `location` can be a string or a list of location strings.
-    location: "Dublin City"
-    # Optional enums:
-    distance: "KM5" # Distance
-    sort_type: "PUBLISH_DATE_DESC" # SortType
-    suitable_for: ["FEMALE"] # SuitableFor list
-    facilities: ["PARKING", "CABLE_TELEVISION"] # Facility list
-    misc_filters: ["VIDEO"] # MiscFilter (parsed and logged, currently no setter in daftlistings)
-    added_since: "DAYS_7" # AddedSince
-    min_ber: "B3" # Ber
-    max_ber: "D2" # Ber
-    min_price: 1000
-    max_price: 2500
-    min_beds: 1
-    max_beds: 3
-    min_baths: 1
-    max_baths: 2
-    owner_occupied: false
-    min_tenants: 1
-    max_tenants: 3
-    min_lease: 6
-    max_lease: 24
-    min_floor_size: 40
-    max_floor_size: 120
-    property_type: "APARTMENT"
-    # room_type: for SHARING searches, filter by room type.
-    # Accepted values: double, single, twin, shared
-    room_type: "double"
-    # custom_filters: inject arbitrary API filters not exposed by daftlistings.
-    # Each key is the Daft API filter name, value is a string or list of strings.
-    # custom_filters:
-    #   adState: "published"
-    # max_pages limits requests to Daft. Omit for all pages.
-    max_pages: 2
+removal_grace_hours: 48
+deep_scan_max_pages: 120
+deep_scan_min_interval_hours: 24
 
-  # Example: buy a 3-4 bed house up to €500k across Dublin, Kildare and Meath.
-  - name: "Commuter Belt House Buy"
-    search_type: "RESIDENTIAL_SALE"
-    location:
-      - "Dublin"
-      - "Kildare"
-      - "Meath"
+# Weekly digest — enable only after a clean week of observation data.
+# digest_day: "sunday"
+# digest_hour: 9
+# digest_timezone: "Europe/Dublin"
+
+searches:
+  - name: "Dublin Sharing"
+    id: "dublin-sharing"
+    search_type: "SHARING"
+    location: ["Dublin"]
+    notify: false
+    deep_scan: true
+    shallow_pages: 2
     sort_type: "PUBLISH_DATE_DESC"
-    added_since: "DAYS_7"
-    property_type: "HOUSE"
-    min_price: 100000
-    max_price: 500000
-    min_beds: 3
-    max_beds: 4
-    max_pages: 5
+
+  - name: "Kildare Sharing"
+    id: "kildare-sharing"
+    search_type: "SHARING"
+    location: ["Kildare"]
+    notify: false
+    deep_scan: true
+    shallow_pages: 2
+    sort_type: "PUBLISH_DATE_DESC"
+
+  - name: "Meath Sharing"
+    id: "meath-sharing"
+    search_type: "SHARING"
+    location: ["Meath"]
+    notify: false
+    deep_scan: true
+    shallow_pages: 2
+    sort_type: "PUBLISH_DATE_DESC"
+
+  - name: "Wicklow Sharing"
+    id: "wicklow-sharing"
+    search_type: "SHARING"
+    location: ["Wicklow"]
+    notify: false
+    deep_scan: true
+    shallow_pages: 2
+    sort_type: "PUBLISH_DATE_DESC"
+
+  - name: "Dublin Residential Rent"
+    id: "dublin-rent"
+    search_type: "RESIDENTIAL_RENT"
+    location: ["Dublin"]
+    notify: false
+    deep_scan: true
+    shallow_pages: 2
+    sort_type: "PUBLISH_DATE_DESC"
+
+  - name: "Kildare Residential Rent"
+    id: "kildare-rent"
+    search_type: "RESIDENTIAL_RENT"
+    location: ["Kildare"]
+    notify: false
+    deep_scan: true
+    shallow_pages: 2
+    sort_type: "PUBLISH_DATE_DESC"
+
+  - name: "Meath Residential Rent"
+    id: "meath-rent"
+    search_type: "RESIDENTIAL_RENT"
+    location: ["Meath"]
+    notify: false
+    deep_scan: true
+    shallow_pages: 2
+    sort_type: "PUBLISH_DATE_DESC"
+
+  - name: "Wicklow Residential Rent"
+    id: "wicklow-rent"
+    search_type: "RESIDENTIAL_RENT"
+    location: ["Wicklow"]
+    notify: false
+    deep_scan: true
+    shallow_pages: 2
+    sort_type: "PUBLISH_DATE_DESC"
+
+# Optional later: a narrow alert search alongside observation.
+# - name: "Dublin Sharing Ensuite Alert"
+#   id: "dublin-sharing-ensuite-alert"
+#   search_type: "SHARING"
+#   location: ["Dublin"]
+#   max_price: 1400
+#   facilities: ["ENSUITE"]
+#   room_type: "double"
+#   notify: true
+#   deep_scan: false
+#   max_pages: 2
+#   sort_type: "PUBLISH_DATE_DESC"
 
 # Each notification channel is a named entry under `notifications`.
 # Fields:
-#   type:          ntfy (more providers later)
-#   role:          alerts (new-listing alerts) | errors (error alerts)
-#   environments:  list of environments this notifier is active in [dev, prod]
+#   type:          ntfy
+#   role:          alerts | errors | digest
+#   environments:  [dev, prod]
 #   enabled:       true/false
 #   server:        ntfy server URL
-#   topic:         ntfy topic name
+#   topic:         ntfy topic name (use a unique name; prefer a token)
 #   token:         optional bearer token
 #   priority:      min, low, default, high, max
 #   tags:          list of ntfy tags
 
 notifications:
-  # --- Dev environment ---
   ntfy-dev-alerts:
     type: ntfy
     role: alerts
     environments: [dev]
-    enabled: true
+    enabled: false
     server: "https://ntfy.sh"
     topic: "my-daft-dev-alerts"
     priority: "default"
@@ -95,12 +145,11 @@ notifications:
     priority: "high"
     tags: ["warning"]
 
-  # --- Prod environment ---
   ntfy-prod-alerts:
     type: ntfy
     role: alerts
     environments: [prod]
-    enabled: true
+    enabled: false
     server: "https://ntfy.sh"
     topic: "my-daft-prod-alerts"
     priority: "default"
@@ -115,3 +164,14 @@ notifications:
     topic: "my-daft-prod-errors"
     priority: "high"
     tags: ["warning"]
+
+  # Requires digest_day to be set at the top of this file.
+  # ntfy-prod-digest:
+  #   type: ntfy
+  #   role: digest
+  #   environments: [prod]
+  #   enabled: true
+  #   server: "https://ntfy.sh"
+  #   topic: "my-daft-prod-digest"
+  #   priority: "default"
+  #   tags: ["chart_with_upwards_trend"]

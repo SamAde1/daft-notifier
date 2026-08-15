@@ -7,9 +7,11 @@ OSRM_TABLE_URL = "http://router.project-osrm.org/table/v1/driving/"
 DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:146.0) Gecko/20100101 Firefox/146.0"
 
 EVENT_NEW = "new"
+EVENT_SEED = "seed"
 EVENT_PRICE_CHANGE = "price_change"
 EVENT_REMOVED = "removed"
 EVENT_RELISTED = "relisted"
+EVENT_CONFIG_RETIRED = "config_retired"
 
 IRISH_COUNTIES = (
     "Antrim",

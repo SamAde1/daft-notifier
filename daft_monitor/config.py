@@ -8,6 +8,7 @@ from typing import Any, cast
 import yaml
 
 from daft_monitor.constants import ENV_PREFIX
+from daft_monitor.digest import parse_digest_day
 
 
 @dataclass(slots=True)
@@ -15,6 +16,10 @@ class SearchConfig:
     name: str
     search_type: str
     location: str | list[str]
+    # Optional stable id; defaults to `name` when omitted.
+    id: str | None = None
+    # When False, new listings from this search are recorded but not alerted.
+    notify: bool = True
     distance: str | None = None
     sort_type: str | None = None
     suitable_for: list[str] | None = None
@@ -40,6 +45,10 @@ class SearchConfig:
     room_type: str | None = None
     custom_filters: dict[str, str | list[str]] | None = None
     max_pages: int | None = None
+    # Stage 3: pages for regular cycles. Defaults to max_pages when omitted.
+    shallow_pages: int | None = None
+    # Stage 3: opt-in truthful removals via daily deep scans (default off).
+    deep_scan: bool = False
 
 
 @dataclass(slots=True)
@@ -48,7 +57,7 @@ class NotifierConfig:
 
     name: str
     type: str  # "ntfy" (extensible later)
-    role: str  # "alerts" or "errors"
+    role: str  # "alerts", "errors" or "digest"
     environments: list[str]  # e.g. ["dev"], ["prod"], ["dev", "prod"]
     enabled: bool = False
     server: str = "https://ntfy.sh"
@@ -68,6 +77,16 @@ class AppConfig:
     location_longitude: float | None
     searches: list[SearchConfig]
     notifiers: list[NotifierConfig]
+    # Stage 3 lifecycle / deep-scan knobs.
+    removal_grace_hours: int = 48
+    deep_scan_max_pages: int | None = None
+    deep_scan_min_interval_hours: int = 24
+    deep_scan_page_jitter_seconds: tuple[float, float] = (1.0, 3.0)
+    # Stage 6 weekly digest schedule. digest_day=None disables the digest.
+    # digest_day is a Python weekday int (Mon=0 ... Sun=6) parsed from a name.
+    digest_day: int | None = None
+    digest_hour: int = 9
+    digest_timezone: str = "Europe/Dublin"
 
 
 def _set_nested(target: dict[str, Any], path: list[str], value: Any) -> None:
@@ -188,7 +207,7 @@ def _parse_notifier(name: str, raw: dict[str, Any]) -> NotifierConfig:
     """Parse a single named notifier entry from the config."""
     ntype = str(raw.get("type", "ntfy")).strip().lower()
     role = str(raw.get("role", "alerts")).strip().lower()
-    _require(role in {"alerts", "errors"}, f"notifications.{name}.role must be 'alerts' or 'errors'.")
+    _require(role in {"alerts", "errors", "digest"}, f"notifications.{name}.role must be 'alerts', 'errors' or 'digest'.")
 
     envs_raw = raw.get("environments", ["dev", "prod"])
     if isinstance(envs_raw, str):
@@ -269,6 +288,8 @@ def load_config(path: str | None = None) -> AppConfig:
                 name=name,
                 search_type=search_type,
                 location=location,
+                id=(str(search["id"]).strip() if search.get("id") is not None else None),
+                notify=bool(search.get("notify", True)),
                 distance=(str(search["distance"]).strip() if search.get("distance") is not None else None),
                 sort_type=(str(search["sort_type"]).strip() if search.get("sort_type") is not None else None),
                 suitable_for=_to_str_list_or_none(search.get("suitable_for")),
@@ -294,8 +315,32 @@ def load_config(path: str | None = None) -> AppConfig:
                 room_type=(str(search["room_type"]).strip().lower() if search.get("room_type") is not None else None),
                 custom_filters=(_parse_custom_filters(search["custom_filters"]) if search.get("custom_filters") else None),
                 max_pages=_to_int_or_none(search.get("max_pages")),
+                shallow_pages=_to_int_or_none(search.get("shallow_pages")),
+                deep_scan=bool(search.get("deep_scan", False)),
             )
         )
+
+    # Names tag listings (search_name) and map back to SearchConfig; IDs key the
+    # searches registry. Both must be unique or lookups silently collide.
+    seen_names: dict[str, int] = {}
+    seen_ids: dict[str, int] = {}
+    for idx, search in enumerate(searches):
+        if search.name in seen_names:
+            raise ValueError(
+                f"searches[{idx}].name {search.name!r} duplicates searches[{seen_names[search.name]}].name. "
+                "Each search name must be unique."
+            )
+        seen_names[search.name] = idx
+        # Same rule as search_identity.resolved_search_id (kept inline to avoid
+        # a config <-> search_identity import cycle).
+        search_id = search.id.strip() if search.id and search.id.strip() else search.name
+        if search_id in seen_ids:
+            raise ValueError(
+                f"searches[{idx}] resolves to search_id {search_id!r}, which duplicates "
+                f"searches[{seen_ids[search_id]}]. "
+                "Use a unique `name` or an explicit unique `id`."
+            )
+        seen_ids[search_id] = idx
 
     # Parse named notifiers.
     notifications = cfg.get("notifications", {})
@@ -308,6 +353,16 @@ def load_config(path: str | None = None) -> AppConfig:
             continue
         notifier_configs.append(_parse_notifier(notifier_name, notifier_raw))
 
+    digest_hour = int(cfg.get("digest_hour", 9))
+    _require(0 <= digest_hour <= 23, "digest_hour must be between 0 and 23.")
+    digest_timezone = str(cfg.get("digest_timezone", "Europe/Dublin")).strip()
+    try:
+        from zoneinfo import ZoneInfo
+
+        ZoneInfo(digest_timezone)
+    except Exception:
+        raise ValueError(f"digest_timezone {digest_timezone!r} is not a valid IANA timezone.")
+
     return AppConfig(
         check_interval_minutes=interval,
         data_dir=data_dir,
@@ -317,4 +372,10 @@ def load_config(path: str | None = None) -> AppConfig:
         location_longitude=location_longitude,
         searches=searches,
         notifiers=notifier_configs,
+        removal_grace_hours=int(cfg.get("removal_grace_hours", 48)),
+        deep_scan_max_pages=_to_int_or_none(cfg.get("deep_scan_max_pages")),
+        deep_scan_min_interval_hours=int(cfg.get("deep_scan_min_interval_hours", 24)),
+        digest_day=parse_digest_day(cfg.get("digest_day")),
+        digest_hour=digest_hour,
+        digest_timezone=digest_timezone,
     )

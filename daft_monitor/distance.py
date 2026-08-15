@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from typing import Iterable
 
 import requests
@@ -35,11 +36,15 @@ def fetch_distances_batch_km(
     *,
     timeout_seconds: int = 25,
     max_batch_size: int = 100,
+    delay_seconds: float = 0.0,
 ) -> dict[str, float]:
     """Fetch driving distance from one origin to many destination points using OSRM table API.
 
     destinations format: [(listing_id, latitude, longitude), ...]
     Returns: {listing_id: distance_km}
+
+    delay_seconds sleeps between batch requests (not before the first) to
+    throttle public OSRM usage during overnight backfills.
     """
     if not destinations:
         return {}
@@ -47,7 +52,11 @@ def fetch_distances_batch_km(
     results: dict[str, float] = {}
     headers = {"Accept": "application/json"}
 
-    for chunk in _chunked(destinations, max_batch_size):
+    chunks = list(_chunked(destinations, max_batch_size))
+    for index, chunk in enumerate(chunks):
+        if index > 0 and delay_seconds > 0:
+            time.sleep(delay_seconds)
+
         coords = [f"{origin_lng},{origin_lat}"]
         ids: list[str] = []
         for listing_id, lat, lng in chunk:

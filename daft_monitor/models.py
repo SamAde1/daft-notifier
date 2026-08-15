@@ -2,10 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any
-
-from daft_monitor.constants import EVENT_NEW, EVENT_PRICE_CHANGE, EVENT_RELISTED, EVENT_REMOVED
-
+from typing import Any, Literal
 
 @dataclass(slots=True)
 class Listing:
@@ -24,6 +21,13 @@ class Listing:
     last_seen: str | None = None
     is_active: bool = True
     last_price: str | None = None
+    # Parsed price fields (filled at insert / price-change time).
+    price_value: float | None = None
+    price_period: str | None = None
+    price_monthly_eq: float | None = None
+    removed_at: str | None = None
+    room_type: str | None = None
+    facilities: list[str] | None = None
 
     @staticmethod
     def now_iso() -> str:
@@ -38,6 +42,18 @@ class ListingEvent:
     old_value: str | None = None
     new_value: str | None = None
     metadata: str | None = None
+
+
+MembershipTransitionKind = Literal["created", "reactivated", "unchanged"]
+
+
+@dataclass(slots=True)
+class MembershipTransition:
+    listing_id: str
+    search_id: str
+    transition: MembershipTransitionKind
+    listing: Listing
+    timestamp: str
 
 
 def safe_listing_id(value: Any) -> str:

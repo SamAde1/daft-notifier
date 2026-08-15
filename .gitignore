@@ -41,9 +41,13 @@ Desktop.ini
 config.yaml
 config.sales.yaml
 config.e2e-test.yaml
+config.e2e-sales-test.yaml
 data/
 data-sales/
 data-e2e/
+data-sales-e2e/
+data-migration-test/
+data-sales-migration-test/
 *.db
 logs/
 logs-sales/
@@ -51,3 +55,16 @@ logs-e2e/
 reports/
 PROJECT_SUMMARY.md
 t3DockerDaftListingsChat.txt
+
+# Personal / Unraid deployment configs (ntfy topics, search criteria)
+unraid-config.yaml
+config.unraid*.yaml
+
+# Daft API captures (tokens, cookies, PII) — never commit
+Daft-example-*
+*request-reponse*.txt
+*request-response*.txt
+
+# Local-only notes
+LLM_PROJECT_CONTEXT.md
+README_VERBOSE.md
