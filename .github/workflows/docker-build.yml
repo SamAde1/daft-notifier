@@ -45,9 +45,11 @@ jobs:
           BASE_URL="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
           curl -sSLo "$TARBALL" "${BASE_URL}/${TARBALL}"
           curl -sSLo checksums.txt "${BASE_URL}/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
-          EXPECTED_SHA="$(rg "${TARBALL}$" checksums.txt -N | awk '{print $1}')"
+          # GitHub-hosted runners do not ship ripgrep (`rg`); awk is always available.
+          EXPECTED_SHA="$(awk -v t="$TARBALL" '$2 == t {print $1}' checksums.txt)"
           if [ -z "$EXPECTED_SHA" ]; then
             echo "Unable to find checksum for ${TARBALL}" >&2
+            cat checksums.txt >&2
             exit 1
           fi
           echo "${EXPECTED_SHA}  ${TARBALL}" | sha256sum -c -
