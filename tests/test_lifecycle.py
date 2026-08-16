@@ -1,8 +1,4 @@
-"""Stage 3: completeness, grace removals, orphans, shallow-vs-deep behaviour.
-
-Run with:
-    python -m unittest tests.test_lifecycle_stage3
-"""
+"""Completeness, grace removals, orphans, and shallow-vs-deep behaviour."""
 
 from __future__ import annotations
 
@@ -12,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 from daft_monitor.config import AppConfig, SearchConfig
 from daft_monitor.constants import EVENT_CONFIG_RETIRED, EVENT_REMOVED
-from daft_monitor.lifecycle_v2 import (
+from daft_monitor.lifecycle import (
     assess_deep_scan_complete,
     membership_eligible_for_removal,
 )
@@ -216,9 +212,7 @@ class StorageLifecycleHelpersTests(unittest.TestCase):
         listing = _listing("L2")
         self.storage.insert_listings([listing])
         configured = {resolved_search_id(self.search)}
-        removable = self.storage.listing_ids_inactive_in_all_configured_searches(
-            {"L2"}, configured
-        )
+        removable = self.storage.listing_ids_inactive_in_all_configured_searches({"L2"}, configured)
         self.assertEqual(removable, set())
 
     def test_inactive_in_all_configured_is_removable(self) -> None:
@@ -228,9 +222,7 @@ class StorageLifecycleHelpersTests(unittest.TestCase):
         sid = resolved_search_id(self.search)
         self.storage.upsert_listing_search_state([("L3", sid, now)])
         self.storage.mark_memberships_inactive(sid, {"L3"}, now)
-        removable = self.storage.listing_ids_inactive_in_all_configured_searches(
-            {"L3"}, {sid}
-        )
+        removable = self.storage.listing_ids_inactive_in_all_configured_searches({"L3"}, {sid})
         self.assertEqual(removable, {"L3"})
 
 
@@ -255,9 +247,7 @@ class ProcessLifecycleIntegrationTests(unittest.TestCase):
         kept = _listing("KEEP", first_seen=earlier)
         missing = _listing("MISS", first_seen=earlier)
         self.storage.insert_listings([kept, missing])
-        self.storage.upsert_listing_search_state(
-            [(kept.id, sid, earlier), (missing.id, sid, earlier)]
-        )
+        self.storage.upsert_listing_search_state([(kept.id, sid, earlier), (missing.id, sid, earlier)])
         # Complete deep that finished after last_seen — but grace not applied
         # because shallow path must not inactivate; only grace path does, and
         # we simulate a fresh shallow where MISS is absent but KEEP is present.
@@ -290,8 +280,6 @@ class ProcessLifecycleIntegrationTests(unittest.TestCase):
         search = _search(deep_scan=True)
         config = _app_config([search], removal_grace_hours=48)
         sid = resolved_search_id(search)
-        seen_at = datetime(2026, 7, 1, 0, 0, tzinfo=timezone.utc)
-        deep_at = seen_at + timedelta(hours=3)
         # Freeze "now" inside process by using membership last_seen + evaluating
         # with real now — instead insert a complete deep run and set last_seen
         # far enough in the past relative to wall clock.
@@ -368,9 +356,7 @@ class ProcessLifecycleIntegrationTests(unittest.TestCase):
         kept = _listing("K", search_name=search.name)
         miss = _listing("M", search_name=search.name)
         self.storage.insert_listings([kept, miss])
-        self.storage.upsert_listing_search_state(
-            [(kept.id, sid, now), (miss.id, sid, now)]
-        )
+        self.storage.upsert_listing_search_state([(kept.id, sid, now), (miss.id, sid, now)])
 
         event = WideEvent(cycle_id="t", is_seed_run=False, check_interval_minutes=5, environment="dev")
         run = SearchRunResult(
@@ -382,9 +368,7 @@ class ProcessLifecycleIntegrationTests(unittest.TestCase):
             is_deep=False,
             error=None,
         )
-        _process_lifecycle(
-            self.storage, config, [kept], [run], {search.name: search}, event
-        )
+        _process_lifecycle(self.storage, config, [kept], [run], {search.name: search}, event)
         active = self.storage.get_active_listing_ids()
         self.assertIn("K", active)
         self.assertNotIn("M", active)
@@ -398,9 +382,7 @@ class ProcessLifecycleIntegrationTests(unittest.TestCase):
         self.storage.register_search(b, now)
         listing = _listing("X", search_name=a.name)
         self.storage.insert_listings([listing])
-        self.storage.upsert_listing_search_state(
-            [("X", "a", now), ("X", "b", now)]
-        )
+        self.storage.upsert_listing_search_state([("X", "a", now), ("X", "b", now)])
         # Search A succeeds without X; B succeeds with X → still active via B.
         event = WideEvent(cycle_id="t", is_seed_run=False, check_interval_minutes=5, environment="dev")
         runs = [

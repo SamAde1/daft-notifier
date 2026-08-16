@@ -1,0 +1,4 @@
+#!/bin/sh
+set -e
+HOOK_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec "$HOOK_DIR/strip-cursor-coauthor.sh" "$1"

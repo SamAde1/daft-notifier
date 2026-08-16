@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import time
-from typing import Iterable
+from typing import Iterable, TypeVar
 
 import requests
 
 from daft_monitor.constants import OSRM_TABLE_URL
 
+_T = TypeVar("_T")
 
-def _chunked[T](items: list[T], size: int) -> Iterable[list[T]]:
+
+def _chunked(items: list[_T], size: int) -> Iterable[list[_T]]:
     for i in range(0, len(items), size):
         yield items[i : i + size]
 

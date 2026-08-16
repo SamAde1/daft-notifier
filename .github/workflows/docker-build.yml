@@ -31,13 +31,18 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt -r requirements-scripts.txt
+          pip install ".[scripts,test]"
 
       - name: Validate Python sources compile
         run: python -m compileall -q daft_monitor scripts tests
 
+      - name: Lint and format check
+        run: |
+          ruff check daft_monitor scripts tests
+          ruff format --check daft_monitor scripts tests
+
       - name: Run unit tests
-        run: python -m unittest discover -s tests -v
+        run: pytest
 
       - name: Install Gitleaks
         run: |

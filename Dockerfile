@@ -8,12 +8,12 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r /app/requirements.txt
+COPY pyproject.toml /app/pyproject.toml
+COPY daft_monitor /app/daft_monitor
+RUN pip install --no-cache-dir .
 
 RUN groupadd --system app && useradd --system --gid app --create-home app
 
-COPY daft_monitor /app/daft_monitor
 COPY scripts /app/scripts
 
 RUN mkdir -p /app/data /app/logs /app/reports && chown -R app:app /app/data /app/logs /app/reports

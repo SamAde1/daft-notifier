@@ -15,21 +15,17 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 import time
 from math import ceil
 from pathlib import Path
 
 import requests
+from daftlistings import Daft
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from daftlistings import Daft  # noqa: E402
-
-from daft_monitor.config import SearchConfig  # noqa: E402
-from daft_monitor.lifecycle_v2 import PAGE_SIZE  # noqa: E402
-from daft_monitor.searcher import Searcher  # noqa: E402
-from daft_monitor.wide_event import WideEvent  # noqa: E402
+from daft_monitor.config import SearchConfig
+from daft_monitor.lifecycle import PAGE_SIZE
+from daft_monitor.searcher import Searcher
+from daft_monitor.wide_event import WideEvent
 
 COUNTIES = ("Dublin", "Kildare", "Meath", "Wicklow")
 SEARCH_TYPES = ("SHARING", "RESIDENTIAL_RENT", "RESIDENTIAL_SALE")
@@ -122,7 +118,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Measure Daft observation-search capacity.")
     parser.add_argument("--sleep", type=float, default=2.0, help="Seconds between queries.")
     parser.add_argument("--timeout", type=int, default=60)
-    parser.add_argument("--headroom", type=float, default=0.25, help="Extra pages as a fraction of the largest measured page count.")
+    parser.add_argument(
+        "--headroom", type=float, default=0.25, help="Extra pages as a fraction of the largest measured page count."
+    )
     parser.add_argument("--json-out", type=Path, default=None)
     parser.add_argument("--walk", action="store_true", help="Walk paginated deep search to terminal page/cap.")
     parser.add_argument("--max-pages", type=int, default=200, help="Hard page cap when --walk is enabled.")
@@ -158,9 +156,7 @@ def main() -> int:
 
     print()
     if args.walk:
-        print(
-            f"{'search':<36} {'results':>8} {'pages':>6} {'last':>6} {'ok':>4}"
-        )
+        print(f"{'search':<36} {'results':>8} {'pages':>6} {'last':>6} {'ok':>4}")
         print("-" * 72)
     else:
         print(f"{'search':<36} {'http':>4} {'total':>8} {'pages':>6} {'page0':>6}")

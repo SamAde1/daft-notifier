@@ -20,9 +20,7 @@ class FetchDistancesThrottleTests(unittest.TestCase):
             response = MagicMock()
             response.raise_for_status = MagicMock()
             # Origin + batch destinations.
-            response.json.return_value = {
-                "distances": [[0.0] + [1000.0 * (i + 1) for i in range(batch_size)]]
-            }
+            response.json.return_value = {"distances": [[0.0] + [1000.0 * (i + 1) for i in range(batch_size)]]}
             return response
 
         responses = [_response_for_batch(2), _response_for_batch(1)]

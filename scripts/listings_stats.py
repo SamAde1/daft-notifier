@@ -15,14 +15,11 @@ import argparse
 import re
 import sqlite3
 import statistics
-import sys
 from datetime import datetime
 from pathlib import Path
 
-# Allow running from repo root without installing the package.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from daft_monitor.logging_setup import parse_bool
 
-from daft_monitor.logging_setup import parse_bool  # noqa: E402
 
 def parse_price_monthly(price_str: str, bedrooms: str | None) -> tuple[float | None, str]:
     """Parse a listing price to monthly euros.
@@ -322,8 +319,10 @@ def run_stats(generate_image: bool = False) -> None:
     print("=" * 60)
 
     if generate_image:
-        chart_path = Path(__file__).resolve().parent.parent / "reports" / (
-            f"monthly_price_metrics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+        chart_path = (
+            Path(__file__).resolve().parent.parent
+            / "reports"
+            / (f"monthly_price_metrics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png")
         )
         try:
             render_metrics_chart(monthly_prices, distance_and_price, chart_path)

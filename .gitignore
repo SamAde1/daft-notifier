@@ -48,6 +48,7 @@ data-e2e/
 data-sales-e2e/
 data-migration-test/
 data-sales-migration-test/
+data-*-verify/
 *.db
 logs/
 logs-sales/

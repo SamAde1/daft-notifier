@@ -11,16 +11,12 @@ from __future__ import annotations
 import argparse
 import sqlite3
 import statistics
-import sys
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-# Allow running from repo root without installing the package.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from daft_monitor.constants import EVENT_NEW, EVENT_PRICE_CHANGE, EVENT_RELISTED, EVENT_REMOVED  # noqa: E402
-from scripts.sales_stats import extract_county, parse_sale_price  # noqa: E402
+from daft_monitor.constants import EVENT_NEW, EVENT_PRICE_CHANGE, EVENT_RELISTED, EVENT_REMOVED
+from sales_stats import extract_county, parse_sale_price
 
 
 def _fmt_eur(value: float | None) -> str:
@@ -220,9 +216,7 @@ def _build_summary(*, conn: sqlite3.Connection, window_days: int, budget: float,
         lines.append("BIGGEST PRICE DROPS")
         for reduction, old_price, new_price, title in top_drops:
             title_short = title[:50] + ("..." if len(title) > 50 else "")
-            lines.append(
-                f"  - {title_short}: {_fmt_eur(old_price)} -> {_fmt_eur(new_price)} (-{_fmt_eur(reduction)})"
-            )
+            lines.append(f"  - {title_short}: {_fmt_eur(old_price)} -> {_fmt_eur(new_price)} (-{_fmt_eur(reduction)})")
 
     return "\n".join(lines)
 
@@ -287,4 +281,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

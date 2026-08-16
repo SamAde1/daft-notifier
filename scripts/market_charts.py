@@ -57,7 +57,9 @@ def render_market_dashboard(
         width = 0.4
         indices = range(len(velocity_weeks))
         ax_velocity.bar([i - width / 2 for i in indices], velocity_added, width=width, label="Added", color="#22c55e")
-        ax_velocity.bar([i + width / 2 for i in indices], velocity_removed, width=width, label="Removed", color="#ef4444")
+        ax_velocity.bar(
+            [i + width / 2 for i in indices], velocity_removed, width=width, label="Removed", color="#ef4444"
+        )
         ax_velocity.set_xticks(list(indices))
         ax_velocity.set_xticklabels([str(w)[:10] for w in velocity_weeks], rotation=60, ha="right", fontsize=8)
         ax_velocity.legend(fontsize=9)

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Literal
 
+
 @dataclass(slots=True)
 class Listing:
     id: str
@@ -58,4 +59,3 @@ class MembershipTransition:
 
 def safe_listing_id(value: Any) -> str:
     return str(value).strip()
-

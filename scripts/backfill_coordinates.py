@@ -15,23 +15,17 @@ from __future__ import annotations
 
 import argparse
 import sqlite3
-import sys
 from pathlib import Path
 
-# Allow running from repo root without installing the package.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from daft_monitor.config import load_config  # noqa: E402
-from daft_monitor.searcher import Searcher  # noqa: E402
-from daft_monitor.wide_event import WideEvent  # noqa: E402
+from daft_monitor.config import load_config
+from daft_monitor.searcher import Searcher
+from daft_monitor.wide_event import WideEvent
 
 
 def _ids_missing_coords(db_path: Path) -> set[str]:
     """Return listing IDs where latitude or longitude is NULL."""
     conn = sqlite3.connect(str(db_path))
-    rows = conn.execute(
-        "SELECT id FROM listings WHERE latitude IS NULL OR longitude IS NULL"
-    ).fetchall()
+    rows = conn.execute("SELECT id FROM listings WHERE latitude IS NULL OR longitude IS NULL").fetchall()
     conn.close()
     return {str(r[0]) for r in rows}
 

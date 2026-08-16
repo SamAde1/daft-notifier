@@ -4,7 +4,7 @@ A Python service that watches [Daft.ie](https://www.daft.ie) for rental, sharing
 
 It started as a new-listing alerter. It now also supports **observation mode**: broad, silent searches that record the market so you can analyse it later. The same image runs rental/sharing and sales as separate containers.
 
-> Hosting on Unraid? See [README.unraid.md](README.unraid.md) for backups, pinned images, and rollout.
+> Hosting on Unraid? See [docs/unraid.md](docs/unraid.md) for backups, pinned images, and rollout.
 
 ---
 
@@ -52,14 +52,14 @@ docker compose -f docker-compose.dev.yml up -d --build
 Pin production to a release tag rather than `latest`:
 
 ```bash
-set DAFT_NOTIFIER_IMAGE=ghcr.io/samade1/daft-notifier:v2.0.0
+set DAFT_NOTIFIER_IMAGE=ghcr.io/samade1/daft-notifier:vX.Y.Z
 docker compose up -d
 ```
 
 ### Local
 
 ```bash
-pip install -r requirements.txt
+pip install -e .
 cp config.example.yaml config.yaml
 python -m daft_monitor
 ```
@@ -67,7 +67,7 @@ python -m daft_monitor
 Install script/charting extras:
 
 ```bash
-pip install -r requirements-scripts.txt
+pip install -e ".[scripts]"
 ```
 
 Run a single cycle (useful for testing):
@@ -75,8 +75,6 @@ Run a single cycle (useful for testing):
 ```bash
 python -m daft_monitor --once
 ```
-
-Runner scripts for local dev: `run-local.bat` (Windows), `run-local.sh` (Linux/macOS).
 
 ---
 
@@ -213,7 +211,7 @@ These events are stored for analytics. They do not generate listing alerts unles
 
 ## Scripts
 
-Install extras first: `pip install -r requirements-scripts.txt`
+Install extras first: `pip install -e ".[scripts]"`
 
 | Script | Purpose |
 |---|---|
@@ -233,9 +231,9 @@ Copy the SQLite file off the server and run analytics on a laptop. Do not run pa
 ## Testing Notifications
 
 ```bash
-python -m tests.test_notifier              # test alert + error to dev
-python -m tests.test_notifier --type alert # alert only
-python -m tests.test_notifier --type error --environment prod
+python scripts/send_test_notification.py              # test alert + error to dev
+python scripts/send_test_notification.py --type alert # alert only
+python scripts/send_test_notification.py --type error --environment prod
 ```
 
 ---
@@ -262,17 +260,19 @@ Daft-Notifier/
 │   ├── config.py             # YAML loader, validation, env var overrides
 │   ├── storage.py            # SQLite schema, migrations, lifecycle helpers
 │   ├── searcher.py           # Daft queries, shallow/deep pagination
-│   ├── lifecycle_v2.py       # Completeness and grace-period rules
+│   ├── lifecycle.py          # Completeness and grace-period rules
 │   ├── digest.py             # Weekly text digest
 │   ├── analytics.py          # Offline analysis helpers (not used at runtime)
 │   └── notifiers/            # ntfy implementation
+├── docs/
+│   └── unraid.md
 ├── scripts/
 ├── tests/
+├── pyproject.toml
 ├── config.example.yaml
 ├── config.sales.example.yaml
 ├── docker-compose.yml
 ├── docker-compose.sales.yml
-├── README.unraid.md
 └── README.md
 ```
 

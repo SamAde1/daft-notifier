@@ -62,12 +62,12 @@ First week:
 
 ## 3) Compose stack (rental + sales)
 
-Pin the image to a **release tag**, not `latest`. Replace `v2.0.0` with the tag you actually deployed.
+Pin the image to a **release tag**, not `latest`. Replace `vX.Y.Z` with the tag you actually deployed.
 
 ```yaml
 services:
   daft-monitor:
-    image: ghcr.io/samade1/daft-notifier:v2.0.0
+    image: ghcr.io/samade1/daft-notifier:vX.Y.Z
     pull_policy: always
     container_name: daft-monitor
     restart: unless-stopped
@@ -86,7 +86,7 @@ services:
       DAFT_MONITOR_STARTUP_TEST_NOTIFICATIONS: "false"
 
   daft-monitor-sales:
-    image: ghcr.io/samade1/daft-notifier:v2.0.0
+    image: ghcr.io/samade1/daft-notifier:vX.Y.Z
     pull_policy: always
     container_name: daft-monitor-sales
     restart: unless-stopped
@@ -191,7 +191,7 @@ Do this **one container at a time** (rental first, sales second).
 1. Confirm nightly backups work.
 2. Pause Watchtower.
 3. Stop both containers.
-4. Snapshot both DBs and both configs to a named folder, for example `/mnt/user/Archive/daft-notifier-backups/pre-v2.0.0/`.
+4. Snapshot both DBs and both configs to a named folder, for example `/mnt/user/Archive/daft-notifier-backups/pre-vX.Y.Z/`.
 5. Copy the new example searches into the server configs. Keep your real ntfy topics; do not copy those back into Git.
 6. Start **only** `daft-monitor` on the pinned tag.
 7. Check:
@@ -237,7 +237,7 @@ This does not detect a stuck cycle or a Daft outage. Watch logs and error ntfy m
 - Using `data_dir: "./data-sales"` inside Docker config files.
   - Fix: use `data_dir: "./data"` and mount host `data-sales` to `/app/data`.
 - Reusing the same host folders for rental and sales.
-- Committing `config.yaml`, `unraid-config.yaml`, or Daft payload captures to the public repo.
+- Committing `config.yaml`, live Unraid configs, or Daft payload captures to the public repo.
 - Leaving listing alerts enabled on broad county-wide searches.
 - Setting `deep_scan_max_pages` below the live Daft result count.
 - Typo in ntfy server URL — must be `https://ntfy.sh` unless you self-host.

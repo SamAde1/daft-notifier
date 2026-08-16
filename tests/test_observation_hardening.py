@@ -16,6 +16,8 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 
+import pandas as pd
+
 from daft_monitor.analytics import apply_segment
 from daft_monitor.config import AppConfig, NotifierConfig, SearchConfig
 from daft_monitor.constants import EVENT_NEW, EVENT_REMOVED, EVENT_SEED
@@ -25,8 +27,6 @@ from daft_monitor.models import Listing
 from daft_monitor.notifiers.ntfy import NtfyNotifier
 from daft_monitor.search_identity import resolved_search_id
 from daft_monitor.storage import Storage
-
-import pandas as pd
 
 
 def _iso(dt: datetime) -> str:
@@ -193,9 +193,7 @@ class ObservationTransactionTests(unittest.TestCase):
         now = Listing.now_iso()
         listing = _listing("L2")
         self.storage.insert_listings([listing])
-        self.storage.apply_search_observations(
-            [("L2", self.search_id, now, listing)], {self.search_id: True}
-        )
+        self.storage.apply_search_observations([("L2", self.search_id, now, listing)], {self.search_id: True})
         events = self.storage.conn.execute(
             "SELECT event_type FROM listing_search_events WHERE listing_id = 'L2'"
         ).fetchall()
@@ -205,9 +203,7 @@ class ObservationTransactionTests(unittest.TestCase):
         now = Listing.now_iso()
         listing = _listing("L3")
         self.storage.insert_listings([listing])
-        self.storage.apply_search_observations(
-            [("L3", self.search_id, now, listing)], {self.search_id: False}
-        )
+        self.storage.apply_search_observations([("L3", self.search_id, now, listing)], {self.search_id: False})
         self.storage.mark_memberships_inactive(self.search_id, {"L3"}, now)
         later = _iso(datetime.now(timezone.utc) + timedelta(hours=1))
         transitions = self.storage.apply_search_observations(
@@ -243,9 +239,7 @@ class ObservationTransactionTests(unittest.TestCase):
         now = Listing.now_iso()
         listing = _listing("L5", title="Snapshot Title L5")
         self.storage.insert_listings([listing])
-        self.storage.apply_search_observations(
-            [("L5", self.search_id, now, listing)], {self.search_id: False}
-        )
+        self.storage.apply_search_observations([("L5", self.search_id, now, listing)], {self.search_id: False})
         # Removal with no listing object passed: snapshot must come from DB.
         self.storage.mark_memberships_inactive(self.search_id, {"L5"}, now)
         events = self.storage.conn.execute(
@@ -281,9 +275,7 @@ class MissingSinceGraceTests(unittest.TestCase):
         now = Listing.now_iso()
         listing = _listing("M1")
         self.storage.insert_listings([listing])
-        self.storage.apply_search_observations(
-            [("M1", self.search_id, now, listing)], {self.search_id: False}
-        )
+        self.storage.apply_search_observations([("M1", self.search_id, now, listing)], {self.search_id: False})
         run_id = self.storage.insert_search_run(
             search_id=self.search_id,
             started_at=now,
@@ -299,9 +291,7 @@ class MissingSinceGraceTests(unittest.TestCase):
         self.assertEqual(rows[0][2], now)  # missing_since set
         # Seen again → missing_since cleared.
         later = _iso(datetime.now(timezone.utc) + timedelta(hours=2))
-        self.storage.apply_search_observations(
-            [("M1", self.search_id, later, listing)], {self.search_id: False}
-        )
+        self.storage.apply_search_observations([("M1", self.search_id, later, listing)], {self.search_id: False})
         rows = self.storage.get_active_membership_rows(self.search_id)
         self.assertIsNone(rows[0][2])
 
@@ -309,9 +299,7 @@ class MissingSinceGraceTests(unittest.TestCase):
         now = Listing.now_iso()
         listing = _listing("M2")
         self.storage.insert_listings([listing])
-        self.storage.apply_search_observations(
-            [("M2", self.search_id, now, listing)], {self.search_id: False}
-        )
+        self.storage.apply_search_observations([("M2", self.search_id, now, listing)], {self.search_id: False})
         run_id = self.storage.insert_search_run(
             search_id=self.search_id,
             started_at=now,
@@ -377,9 +365,7 @@ class SearchRunListingsTests(unittest.TestCase):
             criteria_fingerprint=fingerprint,
             run_kind="baseline",
         )
-        self.assertIsNone(
-            self.storage.get_latest_complete_deep_scan_run(self.search_id, fingerprint)
-        )
+        self.assertIsNone(self.storage.get_latest_complete_deep_scan_run(self.search_id, fingerprint))
 
 
 class AnalyticsEpochBootstrapTests(unittest.TestCase):

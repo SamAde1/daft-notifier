@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Offline market-observation analytics (Stage 5).
+Offline market-observation analytics.
 
 Reads a listings.db snapshot and reports price distributions, distance-price
 gradient, weekly supply/velocity, and posting-time patterns for a named
@@ -8,7 +8,7 @@ segment. Time-on-market survival is added once enough post-lifecycle-v2
 deep-scan removal data exists.
 
 This never runs inside the monitor containers — copy the DB to a laptop and
-run it there. Install extras first: pip install -r requirements-scripts.txt
+run it there. Install extras first: pip install -e ".[scripts]"
 
 Examples:
     python scripts/analyze_market.py --data-dir ./data --segment all
@@ -19,19 +19,15 @@ Examples:
 from __future__ import annotations
 
 import argparse
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Allow running from repo root without installing the package.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import pandas as pd
 
-import pandas as pd  # noqa: E402
-
-from daft_monitor import analytics  # noqa: E402
-from daft_monitor.config import load_config  # noqa: E402
-from daft_monitor.logging_setup import parse_bool  # noqa: E402
-from daft_monitor.search_identity import resolved_search_id  # noqa: E402
+from daft_monitor import analytics
+from daft_monitor.config import load_config
+from daft_monitor.logging_setup import parse_bool
+from daft_monitor.search_identity import resolved_search_id
 
 MIN_TIME_ON_MARKET_SAMPLES = 30
 
@@ -101,12 +97,8 @@ def run_analysis(
     finally:
         conn.close()
 
-    membership_events_df = analytics.trusted_membership_events(
-        membership_events_df, analytics_v2_started_at
-    )
-    membership_events_df = analytics.trusted_lifecycle_events(
-        membership_events_df, v2_started_at
-    )
+    membership_events_df = analytics.trusted_membership_events(membership_events_df, analytics_v2_started_at)
+    membership_events_df = analytics.trusted_lifecycle_events(membership_events_df, v2_started_at)
 
     segment_listings = analytics.apply_segment(listings_df, segment_key)
     segment_events = analytics.apply_segment(membership_events_df, segment_key)
@@ -129,8 +121,7 @@ def run_analysis(
 
     cutoff = datetime.now(timezone.utc) - pd.Timedelta(weeks=window_weeks)
     recent_new = segment_events[
-        segment_events["event_type"].isin(["new", "relisted"])
-        & (segment_events["timestamp"] >= cutoff)
+        segment_events["event_type"].isin(["new", "relisted"]) & (segment_events["timestamp"] >= cutoff)
     ]
     print(f"-- NEW LISTING PRICE TREND (last {window_weeks} weeks) --")
     if recent_new.empty:
@@ -145,9 +136,7 @@ def run_analysis(
 
     print("-- DISTANCE-PRICE GRADIENT --")
     dist_pairs = active_segment.dropna(subset=["distance_to_location", "analysis_price"])
-    distance_and_price = list(
-        zip(dist_pairs["distance_to_location"].tolist(), dist_pairs["analysis_price"].tolist())
-    )
+    distance_and_price = list(zip(dist_pairs["distance_to_location"].tolist(), dist_pairs["analysis_price"].tolist()))
     if distance_and_price:
         centers, medians = analytics.binned_medians(
             dist_pairs["distance_to_location"], dist_pairs["analysis_price"], bin_size=2.0
@@ -210,7 +199,9 @@ def run_analysis(
         durations = tom["duration_days"].tolist()
         observed_flags = tom["observed"].tolist()
         times, survival = analytics.kaplan_meier(durations, observed_flags)
-        print(f"  Samples: {len(durations)} ({observed_count} observed removals, {len(durations) - observed_count} censored)")
+        print(
+            f"  Samples: {len(durations)} ({observed_count} observed removals, {len(durations) - observed_count} censored)"
+        )
         median_survival_time = next((t for t, s in zip(times, survival) if s <= 0.5), None)
         if median_survival_time is not None:
             print(f"  Median time-on-market: ~{median_survival_time:.1f} days (50% still-listed point)")
@@ -218,7 +209,7 @@ def run_analysis(
             print("  Median time-on-market: not reached within observed range.")
 
     if generate_image:
-        from scripts.market_charts import render_market_dashboard, render_survival_curve
+        from market_charts import render_market_dashboard, render_survival_curve
 
         report_dir = Path(__file__).resolve().parent.parent / "reports"
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")

@@ -10,15 +10,10 @@ from __future__ import annotations
 
 import argparse
 import sqlite3
-import sys
-import time
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from daft_monitor.config import load_config  # noqa: E402
-from daft_monitor.distance import fetch_distances_batch_km  # noqa: E402
-from daft_monitor.storage import Storage  # noqa: E402
+from daft_monitor.config import load_config
+from daft_monitor.distance import fetch_distances_batch_km
+from daft_monitor.storage import Storage
 
 
 def parse_args() -> argparse.Namespace:

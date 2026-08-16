@@ -11,8 +11,7 @@ from types import FrameType
 from typing import Any
 
 from daft_monitor import __version__
-from daft_monitor.config import AppConfig, load_config
-from daft_monitor.config import SearchConfig
+from daft_monitor.config import AppConfig, SearchConfig, load_config
 from daft_monitor.constants import (
     EVENT_NEW,
     EVENT_PRICE_CHANGE,
@@ -20,8 +19,10 @@ from daft_monitor.constants import (
     EVENT_REMOVED,
     EVENT_SEED,
 )
+from daft_monitor.digest import build_digest, digest_is_due
 from daft_monitor.distance import fetch_distances_batch_km
 from daft_monitor.health import HealthServer
+from daft_monitor.lifecycle import hours_since
 from daft_monitor.logging_setup import (
     LoggingRuntimeConfig,
     parse_bool,
@@ -29,16 +30,13 @@ from daft_monitor.logging_setup import (
     parse_log_level,
     setup_logging,
 )
-from daft_monitor.digest import build_digest, digest_is_due
-from daft_monitor.lifecycle_v2 import hours_since
 from daft_monitor.models import Listing, ListingEvent, MembershipTransition
 from daft_monitor.notifiers import build_alert_notifiers, build_digest_notifiers, build_error_notifiers
 from daft_monitor.notifiers.base import Notifier
 from daft_monitor.search_identity import resolved_search_id
-from daft_monitor.searcher import SearchRunResult, Searcher
+from daft_monitor.searcher import Searcher, SearchRunResult
 from daft_monitor.storage import Storage
 from daft_monitor.wide_event import WideEvent
-
 
 LOGGER = logging.getLogger("daft_monitor")
 _STOP_REQUESTED = False
@@ -261,9 +259,7 @@ def _dedupe_with_search_context(
                 matching.append((variant, search))
 
         live_pairs = [
-            (variant, search)
-            for variant, search in matching
-            if not seed_flags.get(resolved_search_id(search), False)
+            (variant, search) for variant, search in matching if not seed_flags.get(resolved_search_id(search), False)
         ]
 
         if not matching:
@@ -370,9 +366,7 @@ def _pick_deep_scan_search(
     ready: list[SearchConfig] = []
     for search in eligible:
         search_id = resolved_search_id(search)
-        latest = storage.get_latest_complete_deep_scan(
-            search_id, storage.get_search_fingerprint(search_id)
-        )
+        latest = storage.get_latest_complete_deep_scan(search_id, storage.get_search_fingerprint(search_id))
         if latest is None:
             ready.append(search)
             continue
@@ -416,7 +410,7 @@ def _process_lifecycle(
     name_to_search: dict[str, SearchConfig],
     event: WideEvent,
 ) -> None:
-    """Price/last_seen/relist + Stage 3 truthful removals (legacy vs deep_scan)."""
+    """Price/last_seen/relist plus truthful removals (legacy vs deep_scan)."""
     now = Listing.now_iso()
     current_by_id = {listing.id: listing for listing in deduped}
     current_ids = set(current_by_id.keys())
@@ -510,23 +504,15 @@ def _process_lifecycle(
                     to_mark_missing.append(listing_id)
                     continue
                 confirmed_by_newer_scan = (
-                    first_missing_run_id is not None
-                    and authoritative_run_id != first_missing_run_id
+                    first_missing_run_id is not None and authoritative_run_id != first_missing_run_id
                 )
-                grace_elapsed_at_scan = (
-                    hours_since(missing_since, finished_at)
-                    >= float(config.removal_grace_hours)
-                )
+                grace_elapsed_at_scan = hours_since(missing_since, finished_at) >= float(config.removal_grace_hours)
                 if confirmed_by_newer_scan and grace_elapsed_at_scan:
                     to_inactivate.add(listing_id)
             if to_mark_missing:
-                storage.mark_memberships_missing(
-                    search_id, to_mark_missing, finished_at, authoritative_run_id
-                )
+                storage.mark_memberships_missing(search_id, to_mark_missing, finished_at, authoritative_run_id)
             if to_inactivate:
-                membership_inactivations += storage.mark_memberships_inactive(
-                    search_id, to_inactivate, now
-                )
+                membership_inactivations += storage.mark_memberships_inactive(search_id, to_inactivate, now)
         else:
             # Legacy: missing from a successful fetch ⇒ membership inactive.
             if not ok_by_search.get(search_id, False):
@@ -536,14 +522,10 @@ def _process_lifecycle(
             active_memberships = {lid for lid, _ in storage.get_active_memberships(search_id)}
             missing = active_memberships - seen_ids
             if missing:
-                membership_inactivations += storage.mark_memberships_inactive(
-                    search_id, missing, now
-                )
+                membership_inactivations += storage.mark_memberships_inactive(search_id, missing, now)
 
     active_after = storage.get_active_listing_ids()
-    globally_inactive = storage.listing_ids_inactive_in_all_configured_searches(
-        active_after, configured_ids
-    )
+    globally_inactive = storage.listing_ids_inactive_in_all_configured_searches(active_after, configured_ids)
     removable_ids = globally_inactive
 
     removals = 0
@@ -659,14 +641,10 @@ def _run_cycle(config: AppConfig, storage: Storage, searcher: Searcher, environm
                 criteria_fingerprint=fingerprint,
                 run_kind=run.run_kind,
             )
-            storage.insert_search_run_listings(
-                search_run_id, (listing.id for listing in run.listings)
-            )
+            storage.insert_search_run_listings(search_run_id, (listing.id for listing in run.listings))
             if run.error in {"aborted_http_403", "aborted_http_429"}:
                 retry_after = run.retry_after_seconds or 3600
-                cooldown_until = (
-                    datetime.now(timezone.utc) + timedelta(seconds=retry_after)
-                ).isoformat()
+                cooldown_until = (datetime.now(timezone.utc) + timedelta(seconds=retry_after)).isoformat()
                 storage.set_meta(_deep_scan_cooldown_key(search_id), cooldown_until)
                 event.add_hop(
                     "search_cooldown_set",
@@ -680,26 +658,17 @@ def _run_cycle(config: AppConfig, storage: Storage, searcher: Searcher, environm
                 )
             # Pending seeding is cleared only after this cycle's events have
             # been recorded as seeds; baselines and deep scans both qualify.
-            if (
-                run.run_kind in {"baseline", "deep"}
-                and run.complete
-                and run.error is None
-                and fingerprint
-            ):
+            if run.run_kind in {"baseline", "deep"} and run.complete and run.error is None and fingerprint:
                 seed_clear_candidates.append((search_id, fingerprint))
 
         listings = [listing for run in run_results for listing in run.listings]
-        successful_searches = [
-            run.search_name for run in run_results if run.error is None
-        ]
+        successful_searches = [run.search_name for run in run_results if run.error is None]
         event.add_field("successful_search_count", len(successful_searches))
 
         memberships = _memberships_from_runs(run_results, finished_at_by_search, name_to_search)
         id_to_search = _search_by_id(config.searches)
 
-        deduped, seed_ids = _dedupe_with_search_context(
-            listings, name_to_search, seed_flags
-        )
+        deduped, seed_ids = _dedupe_with_search_context(listings, name_to_search, seed_flags)
         event.add_field("deduped_listings_count", len(deduped))
         event.add_hop("dedupe", {"input_count": len(listings), "output_count": len(deduped)})
         event.add_field("lifecycle_price_changes", 0)
@@ -751,9 +720,7 @@ def _run_cycle(config: AppConfig, storage: Storage, searcher: Searcher, environm
                 "listing_search_state",
                 {
                     "membership_upserts": len(memberships),
-                    "membership_events": sum(
-                        1 for t in membership_transitions if t.transition != "unchanged"
-                    ),
+                    "membership_events": sum(1 for t in membership_transitions if t.transition != "unchanged"),
                     "created": sum(1 for t in membership_transitions if t.transition == "created"),
                     "reactivated": sum(1 for t in membership_transitions if t.transition == "reactivated"),
                 },
@@ -799,9 +766,7 @@ def _run_cycle(config: AppConfig, storage: Storage, searcher: Searcher, environm
         if is_global_seed and all(seed_flags.values()):
             event.add_hop("lifecycle", {"status": "skipped_global_seed"})
         else:
-            _process_lifecycle(
-                storage, config, deduped, run_results, name_to_search, event
-            )
+            _process_lifecycle(storage, config, deduped, run_results, name_to_search, event)
     except Exception as exc:
         event.add_error("cycle_failed", {"error": str(exc)})
     finally:
@@ -1041,7 +1006,8 @@ def _interruptible_sleep(total_seconds: int, interval_minutes: int) -> None:
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Monitor Daft listings and send notifications.")
     parser.add_argument(
-        "--config", dest="config_path",
+        "--config",
+        dest="config_path",
         default=os.environ.get("DAFT_MONITOR_CONFIG"),
         help="Path to config.yaml",
     )

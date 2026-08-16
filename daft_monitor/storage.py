@@ -5,9 +5,6 @@ import sqlite3
 from pathlib import Path
 from typing import Iterable
 
-from daft_monitor.models import Listing, ListingEvent, MembershipTransition
-from daft_monitor.price_parser import parse_price_fields
-from daft_monitor.search_identity import criteria_fingerprint, resolved_search_id
 from daft_monitor.config import SearchConfig
 from daft_monitor.constants import (
     EVENT_CONFIG_RETIRED,
@@ -17,6 +14,9 @@ from daft_monitor.constants import (
     EVENT_REMOVED,
     EVENT_SEED,
 )
+from daft_monitor.models import Listing, ListingEvent, MembershipTransition
+from daft_monitor.price_parser import parse_price_fields
+from daft_monitor.search_identity import criteria_fingerprint, resolved_search_id
 
 
 class Storage:
@@ -252,27 +252,19 @@ class Storage:
         if "run_kind" not in run_columns:
             self.conn.execute("ALTER TABLE search_runs ADD COLUMN run_kind TEXT")
 
-        state_columns = {
-            row[1] for row in self.conn.execute("PRAGMA table_info(listing_search_state)").fetchall()
-        }
+        state_columns = {row[1] for row in self.conn.execute("PRAGMA table_info(listing_search_state)").fetchall()}
         if "missing_since" not in state_columns:
             self.conn.execute("ALTER TABLE listing_search_state ADD COLUMN missing_since TEXT")
         if "last_authoritative_run_id" not in state_columns:
-            self.conn.execute(
-                "ALTER TABLE listing_search_state ADD COLUMN last_authoritative_run_id INTEGER"
-            )
+            self.conn.execute("ALTER TABLE listing_search_state ADD COLUMN last_authoritative_run_id INTEGER")
 
-        event_columns = {
-            row[1] for row in self.conn.execute("PRAGMA table_info(listing_search_events)").fetchall()
-        }
+        event_columns = {row[1] for row in self.conn.execute("PRAGMA table_info(listing_search_events)").fetchall()}
         if "old_value" not in event_columns:
             self.conn.execute("ALTER TABLE listing_search_events ADD COLUMN old_value TEXT")
         if "new_value" not in event_columns:
             self.conn.execute("ALTER TABLE listing_search_events ADD COLUMN new_value TEXT")
 
-        episode_columns = {
-            row[1] for row in self.conn.execute("PRAGMA table_info(listing_search_episodes)").fetchall()
-        }
+        episode_columns = {row[1] for row in self.conn.execute("PRAGMA table_info(listing_search_episodes)").fetchall()}
         for column, ddl in (
             ("title", "TEXT"),
             ("location", "TEXT"),
@@ -285,9 +277,7 @@ class Storage:
             ("distance_to_location", "REAL"),
         ):
             if column not in episode_columns:
-                self.conn.execute(
-                    f"ALTER TABLE listing_search_episodes ADD COLUMN {column} {ddl}"
-                )
+                self.conn.execute(f"ALTER TABLE listing_search_episodes ADD COLUMN {column} {ddl}")
 
         self._dedupe_active_episodes()
         self.conn.execute(
@@ -440,7 +430,7 @@ class Storage:
             return 0
         before = self.conn.total_changes
         listing_ids = {str(row["listing_id"]) for row in rows}
-        listings_by_id = {l.id: l for l in self.get_listings_by_ids(listing_ids)}
+        listings_by_id = {listing.id: listing for listing in self.get_listings_by_ids(listing_ids)}
         for row in rows:
             listing_id = str(row["listing_id"])
             search_id = str(row["search_id"])
@@ -519,12 +509,12 @@ class Storage:
         listings_list = list(listings)
         if not listings_list:
             return []
-        ids = [l.id for l in listings_list]
+        ids = [listing.id for listing in listings_list]
         placeholders = ",".join("?" for _ in ids)
         query = f"SELECT id FROM listings WHERE id IN ({placeholders})"
         existing_rows = self.conn.execute(query, ids).fetchall()
         existing_ids = {str(row["id"]) for row in existing_rows}
-        return [l for l in listings_list if l.id not in existing_ids]
+        return [listing for listing in listings_list if listing.id not in existing_ids]
 
     @staticmethod
     def _enrich_parsed_price(listing: Listing) -> Listing:
@@ -793,9 +783,7 @@ class Storage:
         ).fetchall()
         return {str(row["listing_id"]) for row in rows}
 
-    def get_active_memberships(
-        self, search_id: str
-    ) -> list[tuple[str, str]]:
+    def get_active_memberships(self, search_id: str) -> list[tuple[str, str]]:
         """Return (listing_id, last_seen) for active memberships of a search."""
         rows = self.conn.execute(
             """
@@ -807,9 +795,7 @@ class Storage:
         ).fetchall()
         return [(str(row["listing_id"]), str(row["last_seen"])) for row in rows]
 
-    def get_active_membership_rows(
-        self, search_id: str
-    ) -> list[tuple[str, str, str | None, int | None]]:
+    def get_active_membership_rows(self, search_id: str) -> list[tuple[str, str, str | None, int | None]]:
         """Return (listing_id, last_seen, missing_since, first_missing_run_id)."""
         rows = self.conn.execute(
             """
@@ -824,9 +810,7 @@ class Storage:
                 str(row["listing_id"]),
                 str(row["last_seen"]),
                 str(row["missing_since"]) if row["missing_since"] is not None else None,
-                int(row["last_authoritative_run_id"])
-                if row["last_authoritative_run_id"] is not None
-                else None,
+                int(row["last_authoritative_run_id"]) if row["last_authoritative_run_id"] is not None else None,
             )
             for row in rows
         ]
@@ -889,7 +873,7 @@ class Storage:
             """,
             [timestamp, search_id, *ordered],
         )
-        listings_by_id = {l.id: l for l in self.get_listings_by_ids(set(ordered))}
+        listings_by_id = {listing.id: listing for listing in self.get_listings_by_ids(set(ordered))}
         for listing_id in ordered:
             listing = listings_by_id.get(listing_id)
             if listing is not None:
@@ -1176,7 +1160,9 @@ class Storage:
         self.conn.commit()
         return self.conn.total_changes - before
 
-    def update_listing_price(self, listing_id: str, new_price: str, timestamp: str, bedrooms: str | None = None) -> None:
+    def update_listing_price(
+        self, listing_id: str, new_price: str, timestamp: str, bedrooms: str | None = None
+    ) -> None:
         """Update raw price, last_price, parsed columns, and last_seen."""
         value, period, monthly = parse_price_fields(new_price, bedrooms)
         self.conn.execute(
@@ -1289,7 +1275,7 @@ class Storage:
         if not rows:
             return 0
         listing_ids = {str(row["listing_id"]) for row in rows}
-        listings_by_id = {l.id: l for l in self.get_listings_by_ids(listing_ids)}
+        listings_by_id = {listing.id: listing for listing in self.get_listings_by_ids(listing_ids)}
         opened = 0
         for row in rows:
             listing_id = str(row["listing_id"])
@@ -1442,7 +1428,9 @@ class Storage:
             is_active=bool(row["is_active"]) if row["is_active"] is not None else True,
             last_price=str(row["last_price"]) if row["last_price"] is not None else None,
             price_value=float(row["price_value"]) if "price_value" in keys and row["price_value"] is not None else None,
-            price_period=str(row["price_period"]) if "price_period" in keys and row["price_period"] is not None else None,
+            price_period=str(row["price_period"])
+            if "price_period" in keys and row["price_period"] is not None
+            else None,
             price_monthly_eq=(
                 float(row["price_monthly_eq"])
                 if "price_monthly_eq" in keys and row["price_monthly_eq"] is not None

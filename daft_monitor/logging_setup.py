@@ -5,8 +5,6 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable
-
 
 _LOG_FILE_RE = re.compile(r"^daft_notifier_(dev|prod)_(\d{4}-\d{2}-\d{2})(?:_(\d+))?\.log$")
 _LOG_ID_RE = re.compile(r"\[(\d+)\]")
@@ -46,7 +44,7 @@ def logging_level_from_name(name: str) -> int:
 
 
 _ENV_LOG_DEFAULTS: dict[str, dict[str, int]] = {
-    "dev":  {"max_entries_per_file": 1000, "max_log_files": 5},
+    "dev": {"max_entries_per_file": 1000, "max_log_files": 5},
     "prod": {"max_entries_per_file": 1500, "max_log_files": 10},
 }
 
@@ -58,7 +56,7 @@ class LoggingRuntimeConfig:
     write_logs: bool = True
     log_dir: str = "./logs"
     max_entries_per_file: int = 0  # 0 = use environment default
-    max_log_files: int = 0         # 0 = use environment default
+    max_log_files: int = 0  # 0 = use environment default
 
     def __post_init__(self) -> None:
         defaults = _ENV_LOG_DEFAULTS.get(self.environment, _ENV_LOG_DEFAULTS["dev"])
