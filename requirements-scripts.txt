@@ -1,4 +1,0 @@
--r requirements.txt
-matplotlib==3.10.8
-pandas==2.3.3
-numpy==2.4.2

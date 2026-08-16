@@ -1,9 +1,8 @@
-"""Stage 3 lifecycle helpers: deep-scan completeness and grace-period removal."""
+"""Deep-scan completeness and grace-period removal helpers."""
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
-
 
 PAGE_SIZE = 50  # daftlistings default _PAGE_SZ
 

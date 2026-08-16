@@ -27,7 +27,10 @@ class ExampleConfigTests(unittest.TestCase):
             self.assertIsNone(search.property_type)
             self.assertIsNone(search.min_price)
             self.assertIsNone(search.max_price)
-        counties = {tuple(search.location) if isinstance(search.location, list) else (search.location,) for search in cfg.searches}
+        counties = {
+            tuple(search.location) if isinstance(search.location, list) else (search.location,)
+            for search in cfg.searches
+        }
         self.assertEqual(counties, {("Dublin",), ("Kildare",), ("Meath",), ("Wicklow",)})
         error_prod = [n for n in cfg.notifiers if n.role == "errors" and "prod" in n.environments]
         alert_prod = [n for n in cfg.notifiers if n.role == "alerts" and "prod" in n.environments]

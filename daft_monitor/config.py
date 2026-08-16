@@ -45,9 +45,9 @@ class SearchConfig:
     room_type: str | None = None
     custom_filters: dict[str, str | list[str]] | None = None
     max_pages: int | None = None
-    # Stage 3: pages for regular cycles. Defaults to max_pages when omitted.
+    # Pages fetched for regular (non-deep) cycles. Defaults to max_pages when omitted.
     shallow_pages: int | None = None
-    # Stage 3: opt-in truthful removals via daily deep scans (default off).
+    # Opt-in truthful removals via daily deep scans (default off).
     deep_scan: bool = False
 
 
@@ -77,12 +77,12 @@ class AppConfig:
     location_longitude: float | None
     searches: list[SearchConfig]
     notifiers: list[NotifierConfig]
-    # Stage 3 lifecycle / deep-scan knobs.
+    # Lifecycle / deep-scan knobs.
     removal_grace_hours: int = 48
     deep_scan_max_pages: int | None = None
     deep_scan_min_interval_hours: int = 24
     deep_scan_page_jitter_seconds: tuple[float, float] = (1.0, 3.0)
-    # Stage 6 weekly digest schedule. digest_day=None disables the digest.
+    # Weekly digest schedule. digest_day=None disables the digest.
     # digest_day is a Python weekday int (Mon=0 ... Sun=6) parsed from a name.
     digest_day: int | None = None
     digest_hour: int = 9
@@ -128,7 +128,7 @@ def _apply_env_overrides(config: dict[str, Any]) -> dict[str, Any]:
             continue
         if "__" not in key:
             continue
-        path = [part.lower() for part in key[len(ENV_PREFIX):].split("__")]
+        path = [part.lower() for part in key[len(ENV_PREFIX) :].split("__")]
         _set_nested(config, path, _parse_scalar(value))
     return config
 
@@ -207,7 +207,9 @@ def _parse_notifier(name: str, raw: dict[str, Any]) -> NotifierConfig:
     """Parse a single named notifier entry from the config."""
     ntype = str(raw.get("type", "ntfy")).strip().lower()
     role = str(raw.get("role", "alerts")).strip().lower()
-    _require(role in {"alerts", "errors", "digest"}, f"notifications.{name}.role must be 'alerts', 'errors' or 'digest'.")
+    _require(
+        role in {"alerts", "errors", "digest"}, f"notifications.{name}.role must be 'alerts', 'errors' or 'digest'."
+    )
 
     envs_raw = raw.get("environments", ["dev", "prod"])
     if isinstance(envs_raw, str):
@@ -311,9 +313,13 @@ def load_config(path: str | None = None) -> AppConfig:
                 max_lease=_to_int_or_none(search.get("max_lease")),
                 min_floor_size=_to_int_or_none(search.get("min_floor_size")),
                 max_floor_size=_to_int_or_none(search.get("max_floor_size")),
-                property_type=(str(search["property_type"]).strip() if search.get("property_type") is not None else None),
+                property_type=(
+                    str(search["property_type"]).strip() if search.get("property_type") is not None else None
+                ),
                 room_type=(str(search["room_type"]).strip().lower() if search.get("room_type") is not None else None),
-                custom_filters=(_parse_custom_filters(search["custom_filters"]) if search.get("custom_filters") else None),
+                custom_filters=(
+                    _parse_custom_filters(search["custom_filters"]) if search.get("custom_filters") else None
+                ),
                 max_pages=_to_int_or_none(search.get("max_pages")),
                 shallow_pages=_to_int_or_none(search.get("shallow_pages")),
                 deep_scan=bool(search.get("deep_scan", False)),

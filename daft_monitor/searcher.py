@@ -18,21 +18,22 @@ from daftlistings import (
     Daft,
     Distance,
     Facility,
-    Listing as DaftListing,
     MiscFilter,
     PropertyType,
     SearchType,
     SortType,
     SuitableFor,
 )
+from daftlistings import (
+    Listing as DaftListing,
+)
 
 from daft_monitor.config import AppConfig, SearchConfig
 from daft_monitor.constants import DEFAULT_USER_AGENT
-from daft_monitor.lifecycle_v2 import PAGE_SIZE, assess_deep_scan_complete
+from daft_monitor.lifecycle import PAGE_SIZE, assess_deep_scan_complete
 from daft_monitor.listing_expand import expand_grouped_listings
 from daft_monitor.models import Listing, safe_listing_id
 from daft_monitor.wide_event import WideEvent
-
 
 EnumT = TypeVar("EnumT", bound=Enum)
 

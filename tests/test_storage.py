@@ -1,8 +1,4 @@
-"""Unit tests for search identity helpers and Stage 1/2 storage behaviour.
-
-Run with:
-    python -m unittest tests.test_search_identity tests.test_storage_stage1
-"""
+"""Unit tests for search identity helpers and storage behaviour."""
 
 from __future__ import annotations
 
@@ -76,10 +72,7 @@ class StorageStage1Tests(unittest.TestCase):
 
     def test_schema_tables_exist(self) -> None:
         tables = {
-            row[0]
-            for row in self.storage.conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            ).fetchall()
+            row[0] for row in self.storage.conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         }
         for required in (
             "listings",
@@ -152,12 +145,8 @@ class StorageStage1Tests(unittest.TestCase):
     def test_seed_event_constant(self) -> None:
         self.assertEqual(EVENT_SEED, "seed")
         self.storage.insert_listings([_listing("L1")])
-        self.storage.insert_event(
-            ListingEvent(listing_id="L1", event_type=EVENT_SEED, timestamp=Listing.now_iso())
-        )
-        row = self.storage.conn.execute(
-            "SELECT event_type FROM listing_events WHERE listing_id='L1'"
-        ).fetchone()
+        self.storage.insert_event(ListingEvent(listing_id="L1", event_type=EVENT_SEED, timestamp=Listing.now_iso()))
+        row = self.storage.conn.execute("SELECT event_type FROM listing_events WHERE listing_id='L1'").fetchone()
         self.assertEqual(row["event_type"], "seed")
 
 
@@ -266,9 +255,7 @@ class OverlapDedupeTests(unittest.TestCase):
             _listing("L1", search_name=alerting.name),
             _listing("L1", search_name=silent.name),
         ]
-        deduped, seed_ids = _dedupe_with_search_context(
-            listings, name_to_search, seed_flags
-        )
+        deduped, seed_ids = _dedupe_with_search_context(listings, name_to_search, seed_flags)
         self.assertEqual(len(deduped), 1)
         self.assertEqual(deduped[0].search_name, alerting.name)
         self.assertNotIn("L1", seed_ids)
@@ -285,9 +272,7 @@ class OverlapDedupeTests(unittest.TestCase):
             _listing("L1", search_name=seeding.name),
             _listing("L1", search_name=live.name),
         ]
-        deduped, seed_ids = _dedupe_with_search_context(
-            listings, name_to_search, seed_flags
-        )
+        deduped, seed_ids = _dedupe_with_search_context(listings, name_to_search, seed_flags)
         self.assertEqual(len(deduped), 1)
         self.assertNotIn("L1", seed_ids)
         self.assertEqual(deduped[0].search_name, live.name)

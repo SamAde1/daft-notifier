@@ -16,17 +16,13 @@ import math
 import re
 import sqlite3
 import statistics
-import sys
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-# Allow running from repo root without installing the package.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 from daft_monitor.constants import COUNTY_MATCH_ORDER, EVENT_NEW, EVENT_PRICE_CHANGE, EVENT_RELISTED, EVENT_REMOVED
-from daft_monitor.logging_setup import parse_bool  # noqa: E402
+from daft_monitor.logging_setup import parse_bool
 
 
 @dataclass(slots=True)
@@ -115,7 +111,16 @@ def _summary_prices(values: list[float]) -> dict[str, float]:
     values_sorted = sorted(values)
     if len(values_sorted) == 1:
         only = values_sorted[0]
-        return {"median": only, "mean": only, "min": only, "max": only, "p10": only, "p25": only, "p75": only, "p90": only}
+        return {
+            "median": only,
+            "mean": only,
+            "min": only,
+            "max": only,
+            "p10": only,
+            "p25": only,
+            "p75": only,
+            "p90": only,
+        }
 
     deciles = statistics.quantiles(values_sorted, n=10, method="inclusive")
     quartiles = statistics.quantiles(values_sorted, n=4, method="inclusive")
@@ -167,7 +172,9 @@ def _load_active_listings(conn: sqlite3.Connection) -> list[SnapshotListing]:
             location=str(row["location"]),
             bedrooms=str(row["bedrooms"]) if row["bedrooms"] is not None else None,
             price_text=str(row["price_text"]),
-            distance_to_location=float(row["distance_to_location"]) if row["distance_to_location"] is not None else None,
+            distance_to_location=float(row["distance_to_location"])
+            if row["distance_to_location"] is not None
+            else None,
         )
         for row in rows
     ]
@@ -404,7 +411,7 @@ def run_sales_stats(
         print()
 
     if generate_image:
-        from scripts.sales_charts import render_regional_chart  # noqa: E402
+        from sales_charts import render_regional_chart
 
         report_dir = Path(__file__).resolve().parent.parent / "reports"
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -439,4 +446,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

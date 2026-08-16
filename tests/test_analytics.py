@@ -1,20 +1,15 @@
-"""Unit tests for daft_monitor.analytics (Stage 5).
-
-Run with:
-    python -m unittest tests.test_analytics
-"""
+"""Unit tests for daft_monitor.analytics."""
 
 from __future__ import annotations
 
 import tempfile
 import unittest
-from pathlib import Path
 
 import pandas as pd
 
 from daft_monitor import analytics
 from daft_monitor.config import SearchConfig
-from daft_monitor.constants import EVENT_NEW, EVENT_REMOVED, EVENT_RELISTED, EVENT_SEED
+from daft_monitor.constants import EVENT_NEW, EVENT_RELISTED, EVENT_REMOVED, EVENT_SEED
 from daft_monitor.models import Listing, ListingEvent
 from daft_monitor.storage import Storage
 
@@ -120,9 +115,7 @@ class TrustedLifecycleEventsTests(unittest.TestCase):
         )
 
     def test_none_epoch_keeps_everything(self) -> None:
-        events_df = pd.DataFrame(
-            [{"event_type": EVENT_REMOVED, "timestamp": pd.Timestamp("2020-01-01T00:00:00Z")}]
-        )
+        events_df = pd.DataFrame([{"event_type": EVENT_REMOVED, "timestamp": pd.Timestamp("2020-01-01T00:00:00Z")}])
         result = analytics.trusted_lifecycle_events(events_df, None)
         self.assertEqual(len(result), 1)
 
@@ -259,25 +252,26 @@ class TimeOnMarketTests(unittest.TestCase):
         episodes_df = pd.DataFrame(
             [
                 {
-                    "search_id": "s1", "is_active": 0,
+                    "search_id": "s1",
+                    "is_active": 0,
                     "started_at": pd.Timestamp("2026-01-20T00:00:00Z"),
                     "ended_at": pd.Timestamp("2026-02-01T00:00:00Z"),
                 },
                 {
-                    "search_id": "s1", "is_active": 1,
+                    "search_id": "s1",
+                    "is_active": 1,
                     "started_at": pd.Timestamp("2026-01-16T00:00:00Z"),
                     "ended_at": pd.NaT,
                 },
                 {
-                    "search_id": "s1", "is_active": 0,
+                    "search_id": "s1",
+                    "is_active": 0,
                     "started_at": pd.Timestamp("2026-01-01T00:00:00Z"),
                     "ended_at": pd.Timestamp("2026-01-05T00:00:00Z"),
                 },
             ]
         )
-        result = analytics.time_on_market_frame(
-            episodes_df, analytics_v2_started_at=analytics_v2_started_at, now=now
-        )
+        result = analytics.time_on_market_frame(episodes_df, analytics_v2_started_at=analytics_v2_started_at, now=now)
         self.assertEqual(len(result), 2)
         observed_row = result[result["observed"]].iloc[0]
         self.assertAlmostEqual(observed_row["duration_days"], 12.0)
@@ -292,9 +286,7 @@ class TimeOnMarketTests(unittest.TestCase):
                 {"search_id": "s2", "is_active": 1, "started_at": now, "ended_at": pd.NaT},
             ]
         )
-        result = analytics.time_on_market_frame(
-            episodes_df, analytics_v2_started_at=None, now=now, search_ids={"s1"}
-        )
+        result = analytics.time_on_market_frame(episodes_df, analytics_v2_started_at=None, now=now, search_ids={"s1"})
         self.assertEqual(len(result), 1)
         self.assertEqual(result.iloc[0]["search_id"], "s1")
 

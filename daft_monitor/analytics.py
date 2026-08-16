@@ -1,8 +1,8 @@
-"""Stage 5: shared analytics helpers — DB to pandas, v1-epoch exclusion, segments.
+"""Shared analytics helpers — DB to pandas, v1-epoch exclusion, segments.
 
 This module is imported only by offline `scripts/*.py` analysis tools. It is
 never imported by the monitor runtime (`main.py`, `storage.py`, etc.), so
-pandas is not a server dependency — see requirements-scripts.txt.
+pandas is not a server dependency. Install extras with `pip install -e ".[scripts]"`.
 """
 
 from __future__ import annotations
@@ -18,16 +18,24 @@ import pandas as pd
 from daft_monitor.constants import (
     EVENT_NEW,
     EVENT_PRICE_CHANGE,
-    EVENT_REMOVED,
     EVENT_RELISTED,
+    EVENT_REMOVED,
     EVENT_SEED,
 )
 
 # Columns every loader tries to expose so a Segment predicate can run against
 # listings_df, events_df, or memberships_df interchangeably.
 SEGMENT_COLUMNS = (
-    "title", "location", "bedrooms", "price_monthly_eq", "price_value",
-    "price_period", "analysis_price", "search_name", "room_type", "facilities",
+    "title",
+    "location",
+    "bedrooms",
+    "price_monthly_eq",
+    "price_value",
+    "price_period",
+    "analysis_price",
+    "search_name",
+    "room_type",
+    "facilities",
 )
 
 
@@ -155,7 +163,7 @@ def load_events(conn: sqlite3.Connection) -> pd.DataFrame:
 
 
 def load_memberships(conn: sqlite3.Connection) -> pd.DataFrame:
-    """Per-(listing, search) membership rows — the Stage 3 lifecycle truth.
+    """Per-(listing, search) membership rows — the source of truth for lifecycle state.
 
     Joined with `searches` (for search_name) and `listings` (for the segment
     columns), so this is the preferred source for time-on-market analysis:
@@ -182,40 +190,33 @@ def load_memberships(conn: sqlite3.Connection) -> pd.DataFrame:
 
 
 def get_analytics_v2_started_at(conn: sqlite3.Connection) -> pd.Timestamp | None:
-    row = conn.execute(
-        "SELECT value FROM app_meta WHERE key = 'analytics_v2_started_at'"
-    ).fetchone()
+    row = conn.execute("SELECT value FROM app_meta WHERE key = 'analytics_v2_started_at'").fetchone()
     if row is None:
         return None
     return _to_utc(pd.Series([row[0]])).iloc[0]
 
 
-def trusted_membership_events(
-    events_df: pd.DataFrame, analytics_v2_started_at: pd.Timestamp | None
-) -> pd.DataFrame:
+def trusted_membership_events(events_df: pd.DataFrame, analytics_v2_started_at: pd.Timestamp | None) -> pd.DataFrame:
     if analytics_v2_started_at is None or events_df.empty:
         return events_df
     return events_df.loc[events_df["timestamp"] >= analytics_v2_started_at].reset_index(drop=True)
 
 
 def get_lifecycle_v2_started_at(conn: sqlite3.Connection) -> pd.Timestamp | None:
-    row = conn.execute(
-        "SELECT value FROM app_meta WHERE key = 'lifecycle_v2_started_at'"
-    ).fetchone()
+    row = conn.execute("SELECT value FROM app_meta WHERE key = 'lifecycle_v2_started_at'").fetchone()
     if row is None:
         return None
     return _to_utc(pd.Series([row[0]])).iloc[0]
 
 
-def trusted_lifecycle_events(
-    events_df: pd.DataFrame, v2_started_at: pd.Timestamp | None
-) -> pd.DataFrame:
-    """Drop removed/relisted events recorded before the Stage 3 lifecycle cutover.
+def trusted_lifecycle_events(events_df: pd.DataFrame, v2_started_at: pd.Timestamp | None) -> pd.DataFrame:
+    """Drop removed/relisted events recorded before the lifecycle-tracking cutover.
 
     Pre-cutover removals/relists are artifacts of the page-limited-fetch bug
-    (see Stage 3): a listing missing from a shallow, few-page fetch was
-    marked removed even though it was still live. `new`/`seed`/`price_change`
-    events are unaffected by that bug and are kept regardless of epoch.
+    (see the lifecycle cutover note above): a listing missing from a shallow,
+    few-page fetch was marked removed even though it was still live.
+    `new`/`seed`/`price_change` events are unaffected by that bug and are kept
+    regardless of epoch.
     """
     if v2_started_at is None or events_df.empty:
         return events_df
@@ -227,7 +228,7 @@ def trusted_lifecycle_events(
 
 # --------------------------------------------------------------------------
 # Named segments — analysis-time filters that reproduce/replace old narrow
-# live searches (see Stage 4: those became broad silent searches).
+# live searches (broad silent searches were introduced later; see analytics_v2_started_at).
 # --------------------------------------------------------------------------
 
 
@@ -304,8 +305,7 @@ SEGMENTS: dict[str, Segment] = {
         "commuter_belt_sub_500k",
         "Residential sales in Dublin/Kildare/Meath/Wicklow priced at or below EUR500k.",
         lambda df: (
-            _text_contains(df, "location", "dublin", "kildare", "meath", "wicklow")
-            & _price_at_most(df, 500000)
+            _text_contains(df, "location", "dublin", "kildare", "meath", "wicklow") & _price_at_most(df, 500000)
         ),
     ),
     "dublin_kildare_meath_wicklow": Segment(
@@ -345,9 +345,7 @@ def price_summary(values: pd.Series) -> dict[str, float]:
     }
 
 
-def binned_medians(
-    x: pd.Series, y: pd.Series, *, bin_size: float
-) -> tuple[list[float], list[float]]:
+def binned_medians(x: pd.Series, y: pd.Series, *, bin_size: float) -> tuple[list[float], list[float]]:
     """Median of `y` in fixed-width bins of `x`. Used for distance-price gradients."""
     pairs = pd.DataFrame({"x": x, "y": y}).dropna()
     if pairs.empty:
@@ -367,8 +365,17 @@ def binned_medians(
 
 def weekly_velocity(events_df: pd.DataFrame) -> pd.DataFrame:
     """Weekly supply-added / supply-removed counts, a proxy for market tightness."""
-    columns = ["week", EVENT_NEW, EVENT_SEED, EVENT_REMOVED, EVENT_RELISTED, EVENT_PRICE_CHANGE,
-               "supply_added", "supply_removed", "net_supply_change"]
+    columns = [
+        "week",
+        EVENT_NEW,
+        EVENT_SEED,
+        EVENT_REMOVED,
+        EVENT_RELISTED,
+        EVENT_PRICE_CHANGE,
+        "supply_added",
+        "supply_removed",
+        "net_supply_change",
+    ]
     if events_df.empty:
         return pd.DataFrame(columns=columns)
     df = events_df.copy()

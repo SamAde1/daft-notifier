@@ -1,4 +1,4 @@
-"""Stage 6: in-app weekly digest (hardened per-search membership aggregation)."""
+"""In-app weekly digest (per-search membership aggregation)."""
 
 from __future__ import annotations
 
@@ -130,9 +130,7 @@ def build_digest(
 
         tz = ZoneInfo(timezone_name)
         now_local = datetime.now(tz)
-        cutoff = (now_local - timedelta(days=window_days)).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
+        cutoff = (now_local - timedelta(days=window_days)).replace(hour=0, minute=0, second=0, microsecond=0)
     else:
         cutoff = datetime.now(timezone.utc) - timedelta(days=window_days)
     # Compare in UTC: event timestamps are stored as UTC ISO strings and the
@@ -155,9 +153,7 @@ def build_digest(
     total_active_priced = 0
 
     for row in active_rows:
-        price = _effective_snapshot_price(
-            row["price_value"], row["price_period"], row["price_monthly_eq"]
-        )
+        price = _effective_snapshot_price(row["price_value"], row["price_period"], row["price_monthly_eq"])
         if price is None:
             continue
         total_active_priced += 1
@@ -188,11 +184,7 @@ def build_digest(
             # against any backfilled/legacy rows predating the trusted epoch.
             skipped_legacy += 1
             continue
-        if (
-            event_type in {EVENT_REMOVED, EVENT_RELISTED}
-            and v2_started_at is not None
-            and timestamp < v2_started_at
-        ):
+        if event_type in {EVENT_REMOVED, EVENT_RELISTED} and v2_started_at is not None and timestamp < v2_started_at:
             skipped_legacy += 1
             continue
 
@@ -313,13 +305,20 @@ def build_digest(
 
 
 _DAY_NAME_TO_WEEKDAY = {
-    "monday": 0, "mon": 0,
-    "tuesday": 1, "tue": 1,
-    "wednesday": 2, "wed": 2,
-    "thursday": 3, "thu": 3,
-    "friday": 4, "fri": 4,
-    "saturday": 5, "sat": 5,
-    "sunday": 6, "sun": 6,
+    "monday": 0,
+    "mon": 0,
+    "tuesday": 1,
+    "tue": 1,
+    "wednesday": 2,
+    "wed": 2,
+    "thursday": 3,
+    "thu": 3,
+    "friday": 4,
+    "fri": 4,
+    "saturday": 5,
+    "sat": 5,
+    "sunday": 6,
+    "sun": 6,
 }
 
 
@@ -336,16 +335,12 @@ def parse_digest_day(value: str | int | None) -> int | None:
     raise ValueError(f"digest_day must be a day name or 0-6, got {value!r}")
 
 
-def latest_scheduled_occurrence(
-    *, now: datetime, digest_day: int, digest_hour: int
-) -> datetime:
+def latest_scheduled_occurrence(*, now: datetime, digest_day: int, digest_hour: int) -> datetime:
     """The most recent scheduled digest time at or before `now`."""
     if now.tzinfo is None:
         now = now.replace(tzinfo=timezone.utc)
     days_back = (now.weekday() - digest_day) % 7
-    candidate = (now - timedelta(days=days_back)).replace(
-        hour=digest_hour, minute=0, second=0, microsecond=0
-    )
+    candidate = (now - timedelta(days=days_back)).replace(hour=digest_hour, minute=0, second=0, microsecond=0)
     if candidate > now:
         candidate -= timedelta(days=7)
     return candidate
@@ -368,9 +363,7 @@ def digest_is_due(
     if now.tzinfo is None:
         now = now.replace(tzinfo=timezone.utc)
 
-    scheduled = latest_scheduled_occurrence(
-        now=now, digest_day=digest_day, digest_hour=digest_hour
-    )
+    scheduled = latest_scheduled_occurrence(now=now, digest_day=digest_day, digest_hour=digest_hour)
     if last_sent_at_iso is None:
         if analytics_v2_started_at_iso is None:
             return False

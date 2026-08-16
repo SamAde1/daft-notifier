@@ -12,12 +12,9 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from daft_monitor.storage import Storage  # noqa: E402
+from daft_monitor.storage import Storage
 
 REQUIRED_TABLES = (
     "listings",
@@ -97,9 +94,7 @@ def verify(data_dir: str, baseline_counts: dict[str, int] | None = None) -> list
                     continue
                 current = counts.get(key)
                 if current is not None and current < baseline:
-                    failures.append(
-                        f"{key} decreased from baseline {baseline} to {current}"
-                    )
+                    failures.append(f"{key} decreased from baseline {baseline} to {current}")
 
         duplicate_active = _count(
             storage,
@@ -127,9 +122,7 @@ def verify(data_dir: str, baseline_counts: dict[str, int] | None = None) -> list
             """,
         )
         if inactive_open_episodes:
-            failures.append(
-                f"{inactive_open_episodes} open episodes on inactive memberships"
-            )
+            failures.append(f"{inactive_open_episodes} open episodes on inactive memberships")
 
         active_missing_episodes = _count(
             storage,
@@ -147,9 +140,7 @@ def verify(data_dir: str, baseline_counts: dict[str, int] | None = None) -> list
             """,
         )
         if active_missing_episodes:
-            failures.append(
-                f"{active_missing_episodes} active memberships lack an active episode"
-            )
+            failures.append(f"{active_missing_episodes} active memberships lack an active episode")
 
         lifecycle_epoch = storage.get_meta("lifecycle_v2_started_at")
         analytics_epoch = storage.get_meta("analytics_v2_started_at")

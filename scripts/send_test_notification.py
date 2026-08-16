@@ -1,11 +1,11 @@
-"""Test notification delivery.
+"""Send a test ntfy alert and/or error using the local config.
 
 Usage:
-    python -m tests.test_notifier                              # send both alert + error to dev
-    python -m tests.test_notifier --type alert                 # alert only to dev
-    python -m tests.test_notifier --type error                 # error only to dev
-    python -m tests.test_notifier --environment prod           # both to prod
-    python -m tests.test_notifier --type alert --environment prod
+    python scripts/send_test_notification.py                              # both alert + error to dev
+    python scripts/send_test_notification.py --type alert                 # alert only to dev
+    python scripts/send_test_notification.py --type error                 # error only to dev
+    python scripts/send_test_notification.py --environment prod           # both to prod
+    python scripts/send_test_notification.py --type alert --environment prod
 """
 
 from __future__ import annotations

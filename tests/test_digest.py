@@ -1,8 +1,4 @@
-"""Unit tests for daft_monitor.digest (Stage 6).
-
-Run with:
-    python -m unittest tests.test_digest
-"""
+"""Unit tests for daft_monitor.digest."""
 
 from __future__ import annotations
 
@@ -139,27 +135,19 @@ class DigestIsDueTests(unittest.TestCase):
     def test_catchup_monday_after_missed_sunday(self) -> None:
         # App was down through Sunday 9am; last send was the previous week.
         last_sent = _iso(datetime(2026, 8, 2, 9, 5, tzinfo=timezone.utc))
-        self.assertTrue(
-            digest_is_due(now=self.MONDAY_10AM, digest_day=6, digest_hour=9, last_sent_at_iso=last_sent)
-        )
+        self.assertTrue(digest_is_due(now=self.MONDAY_10AM, digest_day=6, digest_hour=9, last_sent_at_iso=last_sent))
 
     def test_not_due_monday_after_sunday_send(self) -> None:
         last_sent = _iso(datetime(2026, 8, 9, 9, 5, tzinfo=timezone.utc))
-        self.assertFalse(
-            digest_is_due(now=self.MONDAY_10AM, digest_day=6, digest_hour=9, last_sent_at_iso=last_sent)
-        )
+        self.assertFalse(digest_is_due(now=self.MONDAY_10AM, digest_day=6, digest_hour=9, last_sent_at_iso=last_sent))
 
     def test_not_due_already_sent_today(self) -> None:
         last_sent = _iso(self.SUNDAY_10AM - timedelta(hours=1))  # sent at 9am same day
-        self.assertFalse(
-            digest_is_due(now=self.SUNDAY_10AM, digest_day=6, digest_hour=9, last_sent_at_iso=last_sent)
-        )
+        self.assertFalse(digest_is_due(now=self.SUNDAY_10AM, digest_day=6, digest_hour=9, last_sent_at_iso=last_sent))
 
     def test_due_again_next_week(self) -> None:
         last_sent = _iso(self.SUNDAY_10AM - timedelta(days=7))
-        self.assertTrue(
-            digest_is_due(now=self.SUNDAY_10AM, digest_day=6, digest_hour=9, last_sent_at_iso=last_sent)
-        )
+        self.assertTrue(digest_is_due(now=self.SUNDAY_10AM, digest_day=6, digest_hour=9, last_sent_at_iso=last_sent))
 
 
 class BuildDigestTests(unittest.TestCase):
@@ -187,9 +175,7 @@ class BuildDigestTests(unittest.TestCase):
         l1 = _listing("l1", "€1,200 per month")
         l2 = _listing("l2", "€1,400 per month")
         self.storage.insert_listings([l1, l2])
-        self.storage.upsert_listing_search_state(
-            [("l1", search_id, _iso(now)), ("l2", search_id, _iso(now))]
-        )
+        self.storage.upsert_listing_search_state([("l1", search_id, _iso(now)), ("l2", search_id, _iso(now))])
         _membership_event(
             self.storage,
             listing_id="l1",
@@ -245,8 +231,7 @@ class BuildDigestTests(unittest.TestCase):
         new_listings = [_listing(f"n{i}") for i in range(3)]
         self.storage.insert_listings([l1] + new_listings)
         self.storage.upsert_listing_search_state(
-            [(l1.id, search_id, _iso(now))]
-            + [(listing.id, search_id, _iso(now)) for listing in new_listings]
+            [(l1.id, search_id, _iso(now))] + [(listing.id, search_id, _iso(now)) for listing in new_listings]
         )
         for listing in new_listings:
             _membership_event(
@@ -313,9 +298,7 @@ class BuildDigestTests(unittest.TestCase):
         )
         listing = _listing("l1")
         self.storage.insert_listings([listing])
-        self.storage.upsert_listing_search_state(
-            [("l1", search_a, _iso(now)), ("l1", search_b, _iso(now))]
-        )
+        self.storage.upsert_listing_search_state([("l1", search_a, _iso(now)), ("l1", search_b, _iso(now))])
         self.storage.record_membership_price_changes(
             listing,
             old_price_raw="€1,400 per month",

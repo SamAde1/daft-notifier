@@ -168,9 +168,7 @@ class CycleAlertIntegrationTests(unittest.TestCase):
         self.assertEqual(second["new_listings_count"], 1)
         events = {
             str(row["event_type"])
-            for row in self.storage.conn.execute(
-                "SELECT event_type FROM listing_events WHERE listing_id = 'LIVE-1'"
-            )
+            for row in self.storage.conn.execute("SELECT event_type FROM listing_events WHERE listing_id = 'LIVE-1'")
         }
         self.assertIn(EVENT_NEW, events)
 
@@ -199,9 +197,7 @@ class CycleAlertIntegrationTests(unittest.TestCase):
         self.assertEqual(relisted["new_listings_count"], 0)
         events = {
             str(row["event_type"])
-            for row in self.storage.conn.execute(
-                "SELECT event_type FROM listing_events WHERE listing_id = 'GONE-1'"
-            )
+            for row in self.storage.conn.execute("SELECT event_type FROM listing_events WHERE listing_id = 'GONE-1'")
         }
         self.assertIn(EVENT_RELISTED, events)
 

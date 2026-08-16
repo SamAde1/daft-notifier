@@ -20,15 +20,10 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import sys
-from pathlib import Path
 
-# Allow running from repo root without installing the package.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from daft_monitor.models import Listing  # noqa: E402
-from daft_monitor.price_parser import parse_price_fields  # noqa: E402
-from daft_monitor.storage import Storage  # noqa: E402
+from daft_monitor.models import Listing
+from daft_monitor.price_parser import parse_price_fields
+from daft_monitor.storage import Storage
 
 
 def _backfill(data_dir: str, dry_run: bool) -> int:
